@@ -44,6 +44,10 @@ from langchain.tools import BaseTool
 # 환경 설정
 load_dotenv()
 
+# 로깅 설정
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 
 # 환경 변수 처리 개선
 def get_env_variable(var_name: str) -> str:
@@ -70,10 +74,6 @@ os.environ["LANGCHAIN_TRACING_V2"] = (
 os.environ["LANGCHAIN_ENDPOINT"] = get_env_variable("LANGCHAIN_ENDPOINT")
 os.environ["LANGCHAIN_API_KEY"] = get_env_variable("LANGCHAIN_API_KEY")
 
-
-# 로깅 설정
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 # 한글 폰트 설정
 if platform.system() == "Darwin":  # macOS
