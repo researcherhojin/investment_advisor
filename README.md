@@ -3,9 +3,13 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Python 3.12](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/release/python-3120/)
 
+<br/>
+
 ## 프로젝트 개요
 
 이 프로젝트는 다양한 AI 에이전트를 활용하여 주식 투자에 대한 종합적인 분석과 자문을 제공하는 시스템입니다. 미국 및 한국 주식 시장에 대한 분석을 지원합니다.
+
+<br/>
 
 ## 주요 기능
 
@@ -14,10 +18,14 @@
 -   종합적인 투자 의견 제시
 -   한국 및 미국 주식 시장 지원
 
+<br/>
+
 ## 선행 조건
 
 -   Python 3.12 이상
 -   OpenAI API Key
+
+<br/>
 
 ## 설치 방법
 
@@ -47,6 +55,8 @@
     OPENAI_API_KEY=your_openai_api_key_here
     ```
 
+<br/>
+
 ## 사용 방법
 
 1. Streamlit 앱을 실행합니다.
@@ -59,6 +69,8 @@
 3. 사이드바에서 분석하고자 하는 주식의 티커, 시장, 산업 등을 선택합니다.
 4. "분석 시작" 버튼을 클릭하여 결과를 확인합니다.
 
+<br/>
+
 ## 기술 스택
 
 -   Python
@@ -68,6 +80,8 @@
 -   yfinance, FinanceDataReader
 -   OpenAI GPT
 -   LangChain
+
+<br/>
 
 ## 프로젝트 구조
 
@@ -82,9 +96,13 @@ ai-investment-advisor/
 └── .gitignore
 ```
 
+<br/>
+
 ## 라이선스
 
 이 프로젝트는 Apache 라이선스 2.0 하에 있습니다. 자세한 내용은 [LICENSE](https://www.apache.org/licenses/LICENSE-2.0) 파일을 참조하세요.
+
+<br/>
 
 ## 기여
 
@@ -96,9 +114,13 @@ ai-investment-advisor/
 4. 브랜치에 푸시합니다 (`git push origin feature/AmazingFeature`).
 5. 풀 리퀘스트를 열어주세요.
 
+<br/>
+
 ## 연락처
 
 프로젝트에 대한 질문이나 피드백이 있으시면 researcherhojin@gmail.com으로 연락주세요.
+
+<br/>
 
 ## 감사의 글
 
@@ -108,7 +130,3 @@ ai-investment-advisor/
 -   [yfinance](https://github.com/ranaroussi/yfinance)
 -   [FinanceDataReader](https://github.com/FinanceData/FinanceDataReader)
 -   [LangChain](https://github.com/hwchase17/langchain)
-
-```
-
-```
