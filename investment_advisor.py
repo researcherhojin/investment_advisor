@@ -1347,27 +1347,127 @@ def provide_investment_opinion(
 
 # Streamlit UI
 def main():
-    st.set_page_config(layout="wide", page_title="AI 투자 자문 시스템")
+    st.set_page_config(layout="wide", page_title="AI 투자 자문 서비스")
 
-    st.sidebar.title("AI 투자 자문 시스템")
-    st.sidebar.write("다양한 전문가 의견을 종합한 투자 분석 시스템")
+    # CSS 스타일
+    st.markdown(
+        """
+    <style>
+    .stButton>button {
+        width: 100%;
+        border-radius: 20px;
+        height: 3em;
+        transition: all 0.3s ease-in-out;
+    }
+    .stButton>button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 10px rgba(0,0,0,0.2);
+    }
+    .selected {
+        background-color: #FF4B4B !important;
+        color: white !important;
+    }
+    .custom-info {
+        background-color: #e1f5fe;
+        padding: 15px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        border-left: 5px solid #03a9f4;
+    }
+    .visitor-count {
+        background-color: #f0f2f6;
+        border-radius: 10px;
+        padding: 15px;
+        margin-top: 20px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .visitor-count h3 {
+        margin-bottom: 5px;
+    }
+    .visitor-count p {
+        font-size: 24px;
+        font-weight: bold;
+        color: #4CAF50;
+        margin: 0;
+    }
+    </style>
+    """,
+        unsafe_allow_html=True,
+    )
 
-    market = st.sidebar.radio("시장 선택", ["미국장", "한국장"])
+    st.sidebar.title("AI 투자 자문 서비스")
+    st.sidebar.write("다양한 전문가 의견을 종합한 투자 분석 서비스")
 
-    # 티커 검색 링크 및 입력 안내
-    if market == "미국장":
-        ticker_search_url = "https://finance.yahoo.com/lookup"
-        ticker_guide = "예: 애플 주식을 검색하려면 AAPL을 입력해주세요."
-    else:
-        ticker_search_url = "https://finance.naver.com/item/main.naver"
-        ticker_guide = "예: 삼성전자 주식을 검색하려면 005930을 입력해주세요."
+    # 시장 선택 버튼
+    st.sidebar.markdown("### 시장 선택")
+    col1, col2 = st.sidebar.columns(2)
 
-    st.sidebar.markdown(f"[티커 검색하기]({ticker_search_url})")
-    st.sidebar.info(ticker_guide)
+    if "market" not in st.session_state:
+        st.session_state.market = "미국장"
+
+    if "analysis_started" not in st.session_state:
+        st.session_state.analysis_started = False
+
+    if col1.button(
+        "미국장",
+        key="us_market",
+        help="미국 주식 시장 선택",
+        disabled=st.session_state.analysis_started,
+    ):
+        st.session_state.market = "미국장"
+
+    if col2.button(
+        "한국장",
+        key="kr_market",
+        help="한국 주식 시장 선택",
+        disabled=st.session_state.analysis_started,
+    ):
+        st.session_state.market = "한국장"
+
+    # 선택된 버튼 스타일
+    st.markdown(
+        f"""
+    <script>
+        function updateButtonStyles() {{
+            var buttons = window.parent.document.querySelectorAll('.stButton button');
+            buttons.forEach(function(btn) {{
+                if (btn.innerText === '{st.session_state.market}') {{
+                    btn.classList.add('selected');
+                }} else {{
+                    btn.classList.remove('selected');
+                }}
+            }});
+        }}
+        updateButtonStyles();
+        var observer = new MutationObserver(updateButtonStyles);
+        observer.observe(window.parent.document.body, {{ childList: true, subtree: true }});
+    </script>
+    """,
+        unsafe_allow_html=True,
+    )
 
     # 회사 티커 입력
-    company = st.sidebar.text_input("회사 티커 입력", help="티커 코드만 입력해주세요")
+    company = st.sidebar.text_input("회사 티커 입력", help="티커 코드를 입력해주세요")
 
+    # 티커 검색 안내
+    if st.session_state.market == "미국장":
+        ticker_search_url = "https://finance.yahoo.com/lookup"
+        ticker_guide = "예: 애플(Apple)의 티커는 AAPL입니다."
+    else:
+        ticker_search_url = "https://finance.naver.com/item/main.naver"
+        ticker_guide = "예: 삼성전자의 티커는 005930입니다."
+
+    st.sidebar.markdown(
+        f"""
+    <div class="custom-info">
+        <p>{ticker_guide}</p>
+        <p>회사의 티커를 모르시나요? <a href="{ticker_search_url}" target="_blank">여기서 검색해보세요!</a></p>
+    </div>
+    """,
+        unsafe_allow_html=True,
+    )
+
+    # 산업 선택
     industries = [
         "기술",
         "금융",
@@ -1383,9 +1483,10 @@ def main():
 
     industry = st.sidebar.selectbox("산업 선택", options=industries)
 
+    # 분석 기간 선택
     analysis_period = st.sidebar.slider("분석 기간 (개월)", 1, 60, 12)
 
-    if st.sidebar.button("분석 시작"):
+    if st.sidebar.button("분석 시작", key="start_analysis"):
         if not company:
             st.error("회사 티커를 입력해주세요.")
             return
@@ -1394,7 +1495,7 @@ def main():
             system = InvestmentDecisionSystem()
             try:
                 decision, results, additional_data, hist = system.make_decision(
-                    company, industry, market, analysis_period
+                    company, industry, st.session_state.market, analysis_period
                 )
 
                 if (
@@ -1409,23 +1510,27 @@ def main():
 
                 # 탭 생성
                 tabs = ["종합 분석", "기술적 분석", "에이전트 상세 분석"]
-                if market != "한국장":
+
+                if st.session_state.market != "한국장":
                     tabs.append("재무 지표")
 
                 tab1, tab2, tab3, *tab4 = st.tabs(tabs)
 
                 with tab1:
-                    display_summary(decision, additional_data, market)
+                    display_summary(decision, additional_data, st.session_state.market)
 
                 with tab2:
                     display_technical_analysis(
-                        hist, company, market, results.get("기술분석가", {})
+                        hist,
+                        company,
+                        st.session_state.market,
+                        results.get("기술분석가", {}),
                     )
 
                 with tab3:
                     display_agent_analysis(results)
 
-                if market != "한국장" and tab4:
+                if st.session_state.market != "한국장" and tab4:
                     with tab4[0]:
                         display_financial_metrics(additional_data)
 
@@ -1434,8 +1539,7 @@ def main():
                 logger.exception("Unexpected error during analysis")
                 return
 
-    # 서비스 사용 방법 (사이드바 최하단에 토글 형태로)
-    st.sidebar.markdown("---")
+    # 서비스 사용 방법
     with st.sidebar.expander("서비스 사용 방법"):
         st.markdown(
             """
@@ -1447,6 +1551,25 @@ def main():
         6. 결과를 확인하고 각 탭의 상세 정보를 검토합니다.
         """
         )
+
+    # 방문자 수 표시 (세션 상태 사용)
+    if "visitor_count" not in st.session_state:
+        st.session_state.visitor_count = 0
+
+    # 페이지가 처음 로드될 때만 방문자 수 증가
+    if not st.session_state.get("page_loaded", False):
+        st.session_state.visitor_count += 1
+        st.session_state.page_loaded = True
+
+    st.sidebar.markdown(
+        f"""
+    <div class="visitor-count">
+        <h3>👥 총 방문자 수</h3>
+        <p>{st.session_state.visitor_count}</p>
+    </div>
+    """,
+        unsafe_allow_html=True,
+    )
 
 
 def display_summary(decision, additional_data, market):
@@ -1512,11 +1635,7 @@ def display_technical_analysis(
         resistance_level = technical_data.get("저항선")
         if support_level and not isinstance(support_level, str):
             fig.add_hline(
-                y=support_level,
-                line_dash="dash",
-                line_color="green",
-                row=1,
-                col=1,
+                y=support_level, line_dash="dash", line_color="green", row=1, col=1
             )
         if resistance_level and not isinstance(resistance_level, str):
             fig.add_hline(
@@ -1554,7 +1673,14 @@ def display_technical_analysis(
     # 가격 제안 정보 표시
     st.subheader("가격 제안")
     current_price = hist["Close"].iloc[-1]
-    st.write(f"현재 가격: {currency}{current_price:.2f}")
+
+    def format_price(price):
+        if market == "한국장":
+            return f"{price:,.0f}{currency}"
+        else:
+            return f"{currency}{price:,.2f}"
+
+    st.write(f"현재 가격: {format_price(current_price)}")
 
     # 기본 가격 제안 계산
     buy_price = current_price * 0.95
@@ -1571,17 +1697,27 @@ def display_technical_analysis(
             if price != "정보 없음" and not isinstance(price, str):
                 change_percent = (price / current_price - 1) * 100
                 st.write(
-                    f"{price_type}: {currency}{price:.2f} (현재 가격 대비 {change_percent:.2f}%)"
+                    f"{price_type}: {format_price(price)} (현재 가격 대비 {change_percent:.2f}%)"
                 )
             else:
-                st.write(f"{price_type}: {price}")
+                st.write(f"{price_type}: {format_price(default_value)} (기본 추천)")
 
-        st.write("가격 제안 근거:")
-        st.write(
-            technical_data.get("가격_제안_근거", "가격 제안 근거 정보가 없습니다.")
-        )
+        price_suggestion = technical_data.get("가격_제안_근거", "")
+        if price_suggestion:
+            st.write("가격 제안 근거:")
+            st.write(price_suggestion)
+
     else:
-        st.write("기술적 분석 데이터를 가져올 수 없습니다.")
+        st.write(f"추천 구매 가격: {format_price(buy_price)} (현재 가격 대비 -5%)")
+        st.write(
+            f"추천 익절 가격: {format_price(take_profit_price)} (현재 가격 대비 +10%)"
+        )
+        st.write(
+            f"추천 손절 가격: {format_price(stop_loss_price)} (현재 가격 대비 -10%)"
+        )
+        st.write(
+            "주의: 이 가격 제안은 기본적인 계산에 기반합니다. 실제 투자 결정 시 추가적인 분석이 필요합니다."
+        )
 
     # 각 그래프에 대한 설명을 토글로 추가
     with st.expander("주가 차트 설명"):
