@@ -2,7 +2,7 @@
 import os
 import logging
 import datetime
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 import json
 import platform
 from typing import Tuple, Dict, Union, Any
@@ -1354,6 +1354,12 @@ def provide_investment_opinion(
 def main():
     st.set_page_config(layout="wide", page_title="AI 투자 자문 서비스")
 
+    # 세션 상태 초기화
+    if "market" not in st.session_state:
+        st.session_state.market = "미국장"
+    if "analysis_started" not in st.session_state:
+        st.session_state.analysis_started = False
+
     # CSS 스타일
     st.markdown(
         """
@@ -1406,12 +1412,6 @@ def main():
     # 시장 선택 버튼
     st.sidebar.markdown("### 시장 선택")
     col1, col2 = st.sidebar.columns(2)
-
-    if "market" not in st.session_state:
-        st.session_state.market = "미국장"
-
-    if "analysis_started" not in st.session_state:
-        st.session_state.analysis_started = False
 
     if col1.button(
         "미국장",
@@ -1557,20 +1557,22 @@ def main():
         """
         )
 
-    # 방문자 수 표시 (세션 상태 사용)
-    if "visitor_count" not in st.session_state:
-        st.session_state.visitor_count = 0
+    # 오늘의 날짜와 방문자 수 키 생성
+    today = datetime.now().date().isoformat()
+    visitor_key = f"visitor_count_{today}"
 
-    # 페이지가 처음 로드될 때만 방문자 수 증가
-    if not st.session_state.get("page_loaded", False):
-        st.session_state.visitor_count += 1
-        st.session_state.page_loaded = True
+    # 방문자 수 증가 (페이지 로드 시 한 번만 실행)
+    if not st.session_state.get(visitor_key):
+        st.session_state[visitor_key] = 1
+    else:
+        st.session_state[visitor_key] += 1
 
+    # 방문자 수 표시
     st.sidebar.markdown(
         f"""
     <div class="visitor-count">
-        <h3>👥 총 방문자 수</h3>
-        <p>{st.session_state.visitor_count}</p>
+        <h3>👥 오늘의 방문자 수</h3>
+        <p>{st.session_state[visitor_key]}</p>
     </div>
     """,
         unsafe_allow_html=True,
