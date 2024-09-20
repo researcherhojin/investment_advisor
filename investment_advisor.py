@@ -34,7 +34,6 @@ from dotenv import load_dotenv
 from pydantic import Field
 
 # OpenAI 및 LangChain 관련
-import openai
 from langchain_openai import ChatOpenAI
 from langchain.prompts import PromptTemplate
 from langchain.tools import BaseTool
@@ -45,15 +44,27 @@ from langchain.tools import BaseTool
 # 환경 설정
 load_dotenv()
 
-# Streamlit Cloud Version
-openai.api_key = (
-    st.secrets["OPENAI_API_KEY"]
-    if "OPENAI_API_KEY" in st.secrets
-    else os.getenv("OPENAI_API_KEY")
-)
 
-# Local Version
-os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")
+# 환경 변수 처리 개선
+def get_env_variable(var_name: str) -> str:
+    value = os.getenv(var_name)
+    if value is None:
+        value = st.secrets.get(var_name)
+    if value is None:
+        st.error(f"{var_name}가 설정되지 않았습니다.")
+        st.stop()
+    return value
+
+
+# API 키 설정
+OPENAI_API_KEY = get_env_variable("OPENAI_API_KEY")
+ALPHA_VANTAGE_API_KEY = get_env_variable("ALPHA_VANTAGE_API_KEY")
+
+# LangChain 설정
+os.environ["LANGCHAIN_TRACING_V2"] = get_env_variable("LANGCHAIN_TRACING_V2")
+os.environ["LANGCHAIN_ENDPOINT"] = get_env_variable("LANGCHAIN_ENDPOINT")
+os.environ["LANGCHAIN_API_KEY"] = get_env_variable("LANGCHAIN_API_KEY")
+
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO)
@@ -87,7 +98,7 @@ def get_korea_stock_data(ticker: str) -> Dict[str, Any]:
         market_returns = kospi["Close"].pct_change().dropna()
         covariance = returns.cov(market_returns)
         market_variance = market_returns.var()
-        beta = covariance / market_variance
+        beta = round(covariance / market_variance, 2)
 
         # 재무 정보 가져오기
         today = datetime.now().strftime("%Y%m%d")
@@ -314,7 +325,6 @@ class MacroeconomistAgent(InvestmentAgent):
 
     @staticmethod
     def get_economic_indicators(market: str) -> Dict[str, Any]:
-        API_KEY = "8Y8AMYPXIZFI2UEO"
         base_url = "https://www.alphavantage.co/query"
 
         indicators = {}
@@ -326,7 +336,11 @@ class MacroeconomistAgent(InvestmentAgent):
 
         try:
             # GDP 데이터 가져오기
-            params = {"function": "REAL_GDP", "interval": "annual", "apikey": API_KEY}
+            params = {
+                "function": "REAL_GDP",
+                "interval": "annual",
+                "apikey": ALPHA_VANTAGE_API_KEY,
+            }
             if country == "KOR":
                 params["country"] = "KOR"
             response = requests.get(base_url, params=params)
@@ -554,7 +568,7 @@ class RiskManagerAgent(InvestmentAgent):
             # 베타 계산
             cov = combined_data.cov().iloc[0, 1]
             market_var = combined_data["Market"].var()
-            beta = cov / market_var
+            beta = round(cov / market_var, 2)  # 소수점 둘째자리에서 반올림
 
             return {
                 "Beta": beta,
