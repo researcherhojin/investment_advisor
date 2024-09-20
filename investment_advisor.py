@@ -53,6 +53,8 @@ def get_env_variable(var_name: str) -> str:
     if value is None:
         st.error(f"{var_name}가 설정되지 않았습니다.")
         st.stop()
+    # 환경 변수 값을 출력해보기 (디버깅 용도)
+    logger.info(f"{var_name}: {value}")
     return value
 
 
@@ -61,7 +63,10 @@ OPENAI_API_KEY = get_env_variable("OPENAI_API_KEY")
 ALPHA_VANTAGE_API_KEY = get_env_variable("ALPHA_VANTAGE_API_KEY")
 
 # LangChain 설정
-os.environ["LANGCHAIN_TRACING_V2"] = get_env_variable("LANGCHAIN_TRACING_V2")
+os.environ["LANGCHAIN_TRACING_V2"] = (
+    "true" if get_env_variable("LANGCHAIN_TRACING_V2") == "true" else "false"
+)
+
 os.environ["LANGCHAIN_ENDPOINT"] = get_env_variable("LANGCHAIN_ENDPOINT")
 os.environ["LANGCHAIN_API_KEY"] = get_env_variable("LANGCHAIN_API_KEY")
 
