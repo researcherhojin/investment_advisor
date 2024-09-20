@@ -1354,12 +1354,6 @@ def provide_investment_opinion(
 def main():
     st.set_page_config(layout="wide", page_title="AI 투자 자문 서비스")
 
-    # 세션 상태 초기화
-    if "market" not in st.session_state:
-        st.session_state.market = "미국장"
-    if "analysis_started" not in st.session_state:
-        st.session_state.analysis_started = False
-
     # CSS 스타일
     st.markdown(
         """
@@ -1385,22 +1379,6 @@ def main():
         margin-bottom: 20px;
         border-left: 5px solid #03a9f4;
     }
-    .visitor-count {
-        background-color: #f0f2f6;
-        border-radius: 10px;
-        padding: 15px;
-        margin-top: 20px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
-    .visitor-count h3 {
-        margin-bottom: 5px;
-    }
-    .visitor-count p {
-        font-size: 24px;
-        font-weight: bold;
-        color: #4CAF50;
-        margin: 0;
-    }
     </style>
     """,
         unsafe_allow_html=True,
@@ -1413,6 +1391,11 @@ def main():
     st.sidebar.markdown("### 시장 선택")
     col1, col2 = st.sidebar.columns(2)
 
+    if "market" not in st.session_state:
+        st.session_state.market = "미국장"
+    if "analysis_started" not in st.session_state:
+        st.session_state.analysis_started = False
+
     if col1.button(
         "미국장",
         key="us_market",
@@ -1420,7 +1403,6 @@ def main():
         disabled=st.session_state.analysis_started,
     ):
         st.session_state.market = "미국장"
-
     if col2.button(
         "한국장",
         key="kr_market",
@@ -1556,27 +1538,6 @@ def main():
         6. 결과를 확인하고 각 탭의 상세 정보를 검토합니다.
         """
         )
-
-    # 오늘의 날짜와 방문자 수 키 생성
-    today = datetime.now().date().isoformat()
-    visitor_key = f"visitor_count_{today}"
-
-    # 방문자 수 증가 (페이지 로드 시 한 번만 실행)
-    if not st.session_state.get(visitor_key):
-        st.session_state[visitor_key] = 1
-    else:
-        st.session_state[visitor_key] += 1
-
-    # 방문자 수 표시
-    st.sidebar.markdown(
-        f"""
-    <div class="visitor-count">
-        <h3>👥 오늘의 방문자 수</h3>
-        <p>{st.session_state[visitor_key]}</p>
-    </div>
-    """,
-        unsafe_allow_html=True,
-    )
 
 
 def display_summary(decision, additional_data, market):
