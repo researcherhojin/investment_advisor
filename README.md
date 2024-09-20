@@ -24,6 +24,7 @@
 
 -   Python 3.12 이상
 -   OpenAI API Key
+-   Alpha Vantage API Key (경제 지표 데이터용)
 
 <br/>
 
@@ -59,7 +60,7 @@
 
 ## 사용 방법
 
-1. Streamlit 앱을 실행합니다.
+1. Streamlit 앱을 실행합니다:
 
     ```
     streamlit run investment_advisor.py
@@ -120,8 +121,6 @@ ai-investment-advisor/
 
 프로젝트에 대한 질문이나 피드백이 있으시면 researcherhojin@gmail.com으로 연락주세요.
 
-<br/>
-
 ## 감사의 글
 
 이 프로젝트는 다음 오픈 소스 프로젝트들의 도움을 받았습니다:
@@ -130,3 +129,4 @@ ai-investment-advisor/
 -   [yfinance](https://github.com/ranaroussi/yfinance)
 -   [FinanceDataReader](https://github.com/FinanceData/FinanceDataReader)
 -   [LangChain](https://github.com/hwchase17/langchain)
+-   [Alpha Vantage](https://www.alphavantage.co/)
