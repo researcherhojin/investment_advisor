@@ -1766,9 +1766,9 @@ def display_technical_analysis(
         rows=4,
         cols=1,
         shared_xaxes=False,  # 각 서브플롯마다 x축 표시
-        vertical_spacing=0.03,
+        vertical_spacing=0.09,
         subplot_titles=("캔들차트", "MACD", "RSI", "거래량"),
-        row_heights=[0.5, 0.15, 0.15, 0.2],
+        row_heights=[0.5, 0.2, 0.2, 0.2],  # 각 그래프의 높이 비율을 조정합니다
     )
 
     # 캔들차트
@@ -1888,7 +1888,7 @@ def display_technical_analysis(
 
     # 레이아웃 업데이트
     fig.update_layout(
-        height=1200,
+        height=1500,
         title_text=f"{company} 기술적 분석",
         xaxis_rangeslider_visible=False,
         hovermode="x unified",
