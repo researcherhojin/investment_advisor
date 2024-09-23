@@ -2,10 +2,11 @@
 import os
 import logging
 import datetime
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 import json
 import platform
-from typing import Tuple, Dict, Union, Any
+from typing import Any, Dict, Tuple
+from pydantic import Field
 from abc import ABC, abstractmethod
 
 # 데이터 처리 및 시각화 라이브러리
@@ -45,11 +46,11 @@ from langchain.tools import BaseTool
 load_dotenv()
 
 # 로깅 설정
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger(__name__)
 
 
-# 환경 변수 처리 개선
+# 환경 변수 처리 함수
 def get_env_variable(var_name: str) -> str:
     value = os.getenv(var_name)
     if value is None:
@@ -57,8 +58,6 @@ def get_env_variable(var_name: str) -> str:
     if value is None:
         st.error(f"{var_name}가 설정되지 않았습니다.")
         st.stop()
-    # 환경 변수 값을 출력해보기 (디버깅 용도)
-    logger.info(f"{var_name}: {value}")
     return value
 
 
@@ -84,6 +83,7 @@ else:
     plt.rcParams["font.family"] = "NanumGothic"
 
 
+# 한국 주식 데이터 가져오기
 def get_korea_stock_data(ticker: str) -> Dict[str, Any]:
     try:
         end_date = datetime.now()
@@ -161,16 +161,20 @@ def convert_to_yahoo_ticker(company: str, market: str) -> str:
 
 # 기본 Agent
 class InvestmentAgent(BaseTool, ABC):
-    name: str
+    name: str = Field(...)
     description: str
     prompt: PromptTemplate
     weight: float = Field(default=1.0)
-    llm: Any
+    llm: Any = Field(
+        default_factory=lambda: ChatOpenAI(
+            model_name="gpt-4o-mini-2024-07-18", temperature=0.1
+        )
+    )
 
     def __init__(self, **data):
         super().__init__(**data)
-        self.llm = ChatOpenAI(model_name="gpt-4o-mini-2024-07-18", temperature=0.1)
-        # self.llm = ChatAnthropic(model_name="claude-3", temperature=0.1)  # Claude 모델 사용
+        if "llm" not in data:
+            self.llm = ChatOpenAI(model_name="gpt-4o-mini-2024-07-18", temperature=0.1)
 
     @abstractmethod
     def _run(self, query: str, market: str) -> str:
@@ -195,9 +199,9 @@ class InvestmentAgent(BaseTool, ABC):
 
 # 기업 분석가 Agent
 class CompanyAnalystAgent(InvestmentAgent):
-    name = "기업분석가"
-    description = "기업의 재무, 경영 전략, 시장 포지션을 분석합니다."
-    prompt = PromptTemplate(
+    name: str = Field(default="기업분석가")
+    description: str = "기업의 재무, 경영 전략, 시장 포지션을 분석합니다."
+    prompt: PromptTemplate = PromptTemplate(
         input_variables=["company", "financials", "key_stats", "market"],
         template="""
         {market} 시장의 {company}에 대한 다음 재무 데이터와 주요 통계를 바탕으로 종합적인 기업 분석을 수행해주세요:
@@ -285,9 +289,9 @@ class CompanyAnalystAgent(InvestmentAgent):
 
 # 산업 전문가 Agent
 class IndustryExpertAgent(InvestmentAgent):
-    name = "산업전문가"
-    description = "산업 트렌드, 기술 발전, 규제 환경을 평가합니다."
-    prompt = PromptTemplate(
+    name: str = Field(default="산업전문가")
+    description: str = "산업 트렌드, 기술 발전, 규제 환경을 평가합니다."
+    prompt: PromptTemplate = PromptTemplate(
         input_variables=["industry", "market"],
         template="{market} 시장의 {industry} 산업의 트렌드, 기술 발전, 규제 환경을 평가해주세요.",
     )
@@ -309,9 +313,11 @@ class IndustryExpertAgent(InvestmentAgent):
 
 # 거시경제 전문가 Agent
 class MacroeconomistAgent(InvestmentAgent):
-    name = "거시경제전문가"
-    description = "금리, 인플레이션, 경제 성장과 같은 거시경제 지표를 분석합니다."
-    prompt = PromptTemplate(
+    name: str = Field(default="거시경제전문가")
+    description: str = (
+        "금리, 인플레이션, 경제 성장, 실업률과 같은 거시경제 지표를 분석합니다."
+    )
+    prompt: PromptTemplate = PromptTemplate(
         input_variables=["economy", "indicators"],
         template="{economy} 시장의 현재 거시경제 지표와 잠재적 영향을 분석해주세요. 지표: {indicators}",
     )
@@ -393,12 +399,27 @@ class MacroeconomistAgent(InvestmentAgent):
             else:
                 indicators["금리"] = "데이터 없음"
 
+            # 실업률 데이터 가져오기
+            params["function"] = "UNEMPLOYMENT"
+            if country == "KOR":
+                params["country"] = "KOR"
+            response = requests.get(base_url, params=params)
+            response.raise_for_status()
+            data = response.json()
+            logger.info(f"Unemployment API Response: {data}")
+            if "data" in data:
+                unemployment = float(data["data"][0]["value"])
+                indicators["실업률"] = f"{unemployment:.2f}%"
+            else:
+                indicators["실업률"] = "데이터 없음"
+
         except requests.RequestException as e:
             logger.error(f"API 요청 중 오류 발생: {str(e)}")
             indicators = {
                 "GDP 성장률": "데이터 가져오기 실패",
                 "인플레이션": "데이터 가져오기 실패",
                 "금리": "데이터 가져오기 실패",
+                "실업률": "데이터 가져오기 실패",
             }
         except Exception as e:
             logger.error(f"예상치 못한 오류 발생: {str(e)}")
@@ -406,6 +427,7 @@ class MacroeconomistAgent(InvestmentAgent):
                 "GDP 성장률": "데이터 처리 중 오류",
                 "인플레이션": "데이터 처리 중 오류",
                 "금리": "데이터 처리 중 오류",
+                "실업률": "데이터 처리 중 오류",
             }
 
         logger.info(f"최종 경제 지표: {indicators}")
@@ -414,9 +436,9 @@ class MacroeconomistAgent(InvestmentAgent):
 
 # 기술 분석가 Agent
 class TechnicalAnalystAgent(InvestmentAgent):
-    name = "기술분석가"
-    description = "주가 움직임과 패턴에 대한 기술적 분석을 수행합니다."
-    prompt = PromptTemplate(
+    name: str = Field(default="기술분석가")
+    description: str = "주가 움직임과 패턴에 대한 기술적 분석을 수행합니다."
+    prompt: PromptTemplate = PromptTemplate(
         input_variables=["company", "technical_data", "market"],
         template="""
         {company}의 다음 데이터를 바탕으로 종합적인 기술적 분석을 수행해주세요: {technical_data}
@@ -521,9 +543,9 @@ class TechnicalAnalystAgent(InvestmentAgent):
 
 # 리스크 관리자 Agent
 class RiskManagerAgent(InvestmentAgent):
-    name = "리스크관리자"
-    description = "잠재적 리스크를 평가하고 리스크 관리 전략을 제안합니다."
-    prompt = PromptTemplate(
+    name: str = Field(default="리스크관리자")
+    description: str = "잠재적 리스크를 평가하고 리스크 관리 전략을 제안합니다."
+    prompt: PromptTemplate = PromptTemplate(
         input_variables=["company", "risk_data", "market"],
         template="{company}의 잠재적 리스크를 평가하고 리스크 관리 전략을 제안해주세요. 리스크 데이터: {risk_data}, 시장: {market}",
     )
@@ -592,9 +614,9 @@ class RiskManagerAgent(InvestmentAgent):
 
 # 중재자 Agent
 class MediatorAgent(InvestmentAgent):
-    name = "중재자"
-    description = "다른 Agent들의 의견을 종합하여 최종 투자 결정을 내립니다."
-    prompt = PromptTemplate(
+    name: str = Field(default="중재자")
+    description: str = "다른 Agent들의 의견을 종합하여 최종 투자 결정을 내립니다."
+    prompt: PromptTemplate = PromptTemplate(
         input_variables=[
             "company_analysis",
             "macro_analysis",
@@ -617,7 +639,8 @@ class MediatorAgent(InvestmentAgent):
 
     def __init__(self, **data):
         super().__init__(**data)
-        self.llm = ChatOpenAI(temperature=0.1)
+        if "llm" not in data:
+            self.llm = ChatOpenAI(model_name="gpt-4o-mini-2024-07-18", temperature=0.1)
 
     def _run(self, inputs: Dict[str, str]) -> str:
         return self.llm.invoke(self.prompt.format(**inputs)).content
@@ -698,20 +721,14 @@ class InvestmentDecisionSystem:
         final_decision = self.get_final_decision(results, market)
         additional_data = self.process_additional_data(info, market)
 
-        technical_result = results.get("기술분석가", {})
+        technical_result = results.get("기술분석가", "")
 
-        if isinstance(technical_result, dict):
-            technical_data = technical_result.get("data", {})
-        elif isinstance(technical_result, str):
-            try:
-                technical_data = json.loads(technical_result).get("data", {})
-            except json.JSONDecodeError:
-                logger.error(
-                    f"기술분석가 결과를 JSON으로 파싱할 수 없습니다: {technical_result}"
-                )
-                technical_data = {}
-        else:
-            technical_data = {}
+        # 기술분석가 결과를 문자열로 처리
+        technical_data = {}
+        if isinstance(technical_result, str):
+            technical_data = {"analysis": technical_result}
+        elif isinstance(technical_result, dict):
+            technical_data = technical_result
 
         # 한국장인 경우 key_stats를 빈 딕셔너리로 설정
         key_stats = {}
@@ -1350,6 +1367,151 @@ def provide_investment_opinion(
     )
 
 
+def recommend_similar_stocks(company: str, market: str) -> pd.DataFrame:
+    if market == "한국장":
+        st.warning("현재 한국 시장에 대한 섹터 정보를 가져올 수 없습니다.")
+        return pd.DataFrame()
+    else:
+        # 미국 시장의 경우 S&P 500 기업 목록 사용
+        sp500_url = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
+        try:
+            sp500_table = pd.read_html(sp500_url)
+            sp500_df = sp500_table[0]
+
+            # 입력된 회사의 섹터를 찾기
+            ticker = company.upper()
+            company_info = sp500_df[sp500_df["Symbol"] == ticker]
+            if company_info.empty:
+                st.warning("입력한 티커가 S&P 500 목록에 없습니다.")
+                return pd.DataFrame()
+
+            # 'GICS Sector' 컬럼이 있는지 확인
+            if "GICS Sector" not in sp500_df.columns:
+                st.warning("S&P 500 데이터에 섹터 정보가 없습니다.")
+                return pd.DataFrame()
+
+            company_sector = company_info["GICS Sector"].values[0]
+
+            # 동일 섹터의 다른 종목 추천
+            similar_stocks = sp500_df[sp500_df["GICS Sector"] == company_sector]
+            # 입력된 회사 제외
+            similar_stocks = similar_stocks[similar_stocks["Symbol"] != ticker]
+
+            # 재무 지표 가져오기
+            financial_data = []
+            for symbol in similar_stocks["Symbol"].tolist():
+                try:
+                    stock_info = yf.Ticker(symbol).info
+                    pe_ratio = stock_info.get("trailingPE", None)
+                    market_cap = stock_info.get("marketCap", None)
+                    roe = stock_info.get("returnOnEquity", None)
+                    if pe_ratio and market_cap:
+                        financial_data.append(
+                            {
+                                "티커": symbol,
+                                "회사명": stock_info.get("shortName", symbol),
+                                "PER": pe_ratio,
+                                "ROE": roe,
+                                "시가총액": market_cap,
+                            }
+                        )
+                except Exception as e:
+                    continue
+
+            # 데이터프레임으로 변환
+            financial_df = pd.DataFrame(financial_data)
+            if financial_df.empty:
+                st.warning("재무 데이터를 가져올 수 없습니다.")
+                return pd.DataFrame()
+
+            # 시가총액 상위 5개 종목 추천
+            top_stocks = financial_df.sort_values(by="시가총액", ascending=False).head(
+                5
+            )
+
+            # 추천 이유 추가
+            top_stocks["추천 이유"] = top_stocks.apply(
+                lambda x: f"동일 섹터 내 시가총액 상위 기업으로 안정성이 높음", axis=1
+            )
+
+            # 필요한 열만 선택
+            top_stocks = top_stocks[
+                ["티커", "회사명", "PER", "ROE", "시가총액", "추천 이유"]
+            ]
+
+            return top_stocks
+
+        except Exception as e:
+            st.error(f"S&P 500 데이터를 가져오는 중 오류가 발생했습니다: {str(e)}")
+            return pd.DataFrame()
+
+
+# 금일의 추천 종목 기능
+def recommend_today_stocks(market: str) -> pd.DataFrame:
+    """
+    금일의 추천 종목을 반환합니다.
+    """
+    if market == "한국장":
+        # 예시로 PER이 낮고 거래량이 많은 상위 5개 종목 추천
+        today = datetime.now().strftime("%Y%m%d")
+        data = stock.get_market_fundamental_by_ticker(today)
+
+        # Volume 컬럼 추가를 위해 거래량 데이터 가져오기
+        volume_data = stock.get_market_trading_value_by_ticker(today)
+        data = data.join(volume_data["거래량"])
+
+        # 필터링
+        recommended = data[(data["PER"] < 10) & (data["거래량"] > 1000000)]
+        recommended = recommended.sort_values(by="거래량", ascending=False).head(5)
+        recommended = recommended[["PER", "거래량"]]
+        recommended.index.name = "티커"
+        recommended.reset_index(inplace=True)
+
+        # 추천 이유 추가
+        recommended["추천 이유"] = "PER이 낮고 거래량이 많아 저평가된 성장주로 판단"
+
+        return recommended
+
+    else:
+        # 미국장의 경우 S&P 500 종목 중에서 RSI가 30 이하인 과매도 종목 추천
+        sp500_url = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
+        sp500_table = pd.read_html(sp500_url)
+        sp500_df = sp500_table[0]
+        tickers = sp500_df["Symbol"].tolist()
+
+        recommended = []
+
+        for ticker in tickers:
+            try:
+                # 티커 수정: '.'을 '-', '$' 제거
+                yf_ticker = ticker.replace(".", "-").replace("$", "")
+                stock_data = yf.Ticker(yf_ticker).history(period="3mo")
+                if stock_data.empty:
+                    continue
+                rsi = ta.momentum.RSIIndicator(stock_data["Close"]).rsi().iloc[-1]
+                macd = ta.trend.MACD(stock_data["Close"])
+                macd_line = macd.macd().iloc[-1]
+                macd_signal = macd.macd_signal().iloc[-1]
+
+                if rsi < 30 and macd_line > macd_signal:
+                    recommended.append(
+                        {
+                            "티커": ticker,
+                            "RSI": round(rsi, 2),
+                            "추천 이유": f"RSI {round(rsi, 2)}로 과매도 상태이며, MACD가 시그널 라인을 상향 돌파하여 상승 모멘텀 기대",
+                        }
+                    )
+
+            except Exception as e:
+                continue
+
+            if len(recommended) >= 5:
+                break
+
+        recommended_df = pd.DataFrame(recommended)
+        return recommended_df
+
+
 # Streamlit UI
 def main():
     st.set_page_config(layout="wide", page_title="AI 투자 자문 서비스")
@@ -1496,12 +1658,15 @@ def main():
                     return
 
                 # 탭 생성
-                tabs = ["종합 분석", "기술적 분석", "에이전트 상세 분석"]
-
-                if st.session_state.market != "한국장":
-                    tabs.append("재무 지표")
-
-                tab1, tab2, tab3, *tab4 = st.tabs(tabs)
+                tabs = [
+                    "종합 분석",
+                    "기술적 분석",
+                    "에이전트 상세 분석",
+                    "재무 지표",
+                    "동일 섹터 추천 종목",
+                    "금일의 추천 종목",
+                ]
+                tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(tabs)
 
                 with tab1:
                     display_summary(decision, additional_data, st.session_state.market)
@@ -1517,13 +1682,32 @@ def main():
                 with tab3:
                     display_agent_analysis(results)
 
-                if st.session_state.market != "한국장" and tab4:
-                    with tab4[0]:
-                        display_financial_metrics(additional_data)
+                with tab4:
+                    display_financial_metrics(additional_data)
+
+                with tab5:
+                    similar_stocks = recommend_similar_stocks(
+                        company, st.session_state.market
+                    )
+                    st.header("동일 섹터 추천 종목")
+                    if not similar_stocks.empty:
+                        st.table(similar_stocks)
+                    else:
+                        st.write("추천 종목이 없습니다.")
+
+                with tab6:
+                    today_recommendations = recommend_today_stocks(
+                        st.session_state.market
+                    )
+                    st.header("금일의 추천 종목")
+                    if not today_recommendations.empty:
+                        st.table(today_recommendations)
+                    else:
+                        st.write("추천 종목이 없습니다.")
 
             except Exception as e:
                 st.error(f"분석 중 오류 발생: {str(e)}")
-                logger.exception("Unexpected error during analysis")
+                logging.exception("Unexpected error during analysis")
                 return
 
     # 서비스 사용 방법
@@ -1563,10 +1747,7 @@ def display_summary(decision, additional_data, market):
 
 
 def display_technical_analysis(
-    hist: pd.DataFrame,
-    company: str,
-    market: str,
-    technical_data: Union[Dict[str, Any], str],
+    hist: pd.DataFrame, company: str, market: str, technical_data: dict
 ):
     if hist.empty:
         st.error("주가 데이터를 가져올 수 없습니다.")
@@ -1574,27 +1755,58 @@ def display_technical_analysis(
 
     st.header("기술적 분석")
 
+    currency = "원" if market == "한국장" else "$"
+
     # 이동평균 계산
     hist["SMA_50"] = hist["Close"].rolling(window=50).mean()
     hist["SMA_200"] = hist["Close"].rolling(window=200).mean()
 
-    currency = "원" if market == "한국장" else "$"
-
+    # 캔들차트 추가
     fig = make_subplots(
         rows=4,
         cols=1,
-        shared_xaxes=True,
+        shared_xaxes=False,  # 각 서브플롯마다 x축 표시
         vertical_spacing=0.03,
-        subplot_titles=("주가", "MACD", "RSI", "거래량"),
+        subplot_titles=("캔들차트", "MACD", "RSI", "거래량"),
+        row_heights=[0.5, 0.15, 0.15, 0.2],
     )
 
-    # 주가 차트
-    fig.add_trace(go.Scatter(x=hist.index, y=hist["Close"], name="종가"), row=1, col=1)
+    # 캔들차트
     fig.add_trace(
-        go.Scatter(x=hist.index, y=hist["SMA_50"], name="50일 이동평균"), row=1, col=1
+        go.Candlestick(
+            x=hist.index,
+            open=hist["Open"],
+            high=hist["High"],
+            low=hist["Low"],
+            close=hist["Close"],
+            name="캔들차트",
+            increasing_line_color="red",
+            decreasing_line_color="blue",
+        ),
+        row=1,
+        col=1,
+    )
+
+    # 이동평균선 추가
+    fig.add_trace(
+        go.Scatter(
+            x=hist.index,
+            y=hist["SMA_50"],
+            name="50일 이동평균",
+            line=dict(color="orange", width=1),
+        ),
+        row=1,
+        col=1,
     )
     fig.add_trace(
-        go.Scatter(x=hist.index, y=hist["SMA_200"], name="200일 이동평균"), row=1, col=1
+        go.Scatter(
+            x=hist.index,
+            y=hist["SMA_200"],
+            name="200일 이동평균",
+            line=dict(color="purple", width=1),
+        ),
+        row=1,
+        col=1,
     )
 
     # 지지선과 저항선 추가
@@ -1612,29 +1824,88 @@ def display_technical_analysis(
 
     # MACD
     macd = ta.trend.MACD(hist["Close"])
-    fig.add_trace(go.Scatter(x=hist.index, y=macd.macd(), name="MACD"), row=2, col=1)
+    hist["MACD"] = macd.macd()
+    hist["MACD_Signal"] = macd.macd_signal()
+    hist["MACD_Hist"] = macd.macd_diff()
+
     fig.add_trace(
-        go.Scatter(x=hist.index, y=macd.macd_signal(), name="Signal Line"), row=2, col=1
+        go.Scatter(x=hist.index, y=hist["MACD"], name="MACD", line=dict(color="blue")),
+        row=2,
+        col=1,
     )
     fig.add_trace(
-        go.Bar(x=hist.index, y=macd.macd_diff(), name="MACD Histogram"), row=2, col=1
+        go.Scatter(
+            x=hist.index,
+            y=hist["MACD_Signal"],
+            name="Signal Line",
+            line=dict(color="red"),
+        ),
+        row=2,
+        col=1,
+    )
+    fig.add_trace(
+        go.Bar(
+            x=hist.index,
+            y=hist["MACD_Hist"],
+            name="MACD Histogram",
+            marker_color="green",
+        ),
+        row=2,
+        col=1,
     )
 
     # RSI
     rsi = ta.momentum.RSIIndicator(hist["Close"]).rsi()
-    fig.add_trace(go.Scatter(x=hist.index, y=rsi, name="RSI"), row=3, col=1)
+    hist["RSI"] = rsi
+
+    fig.add_trace(
+        go.Scatter(x=hist.index, y=hist["RSI"], name="RSI", line=dict(color="purple")),
+        row=3,
+        col=1,
+    )
     fig.add_hline(y=70, line_dash="dash", line_color="red", row=3, col=1)
     fig.add_hline(y=30, line_dash="dash", line_color="green", row=3, col=1)
 
     # 거래량
     if "Volume" in hist.columns:
         fig.add_trace(
-            go.Bar(x=hist.index, y=hist["Volume"], name="거래량"), row=4, col=1
+            go.Bar(
+                x=hist.index,
+                y=hist["Volume"],
+                name="거래량",
+                marker_color="orange",
+                opacity=0.5,
+            ),
+            row=4,
+            col=1,
         )
     else:
         st.warning("거래량 데이터를 가져올 수 없습니다.")
 
-    fig.update_layout(height=1200, title_text=f"{company} 기술적 분석")
+    # 각 서브플롯의 x축 레이블 표시
+    for i in range(1, 5):
+        fig.update_xaxes(row=i, col=1, showticklabels=True)
+
+    # 레이아웃 업데이트
+    fig.update_layout(
+        height=1200,
+        title_text=f"{company} 기술적 분석",
+        xaxis_rangeslider_visible=False,
+        hovermode="x unified",
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1,
+        ),
+    )
+
+    # y축 레이블 설정
+    fig.update_yaxes(title_text="가격", row=1, col=1)
+    fig.update_yaxes(title_text="MACD", row=2, col=1)
+    fig.update_yaxes(title_text="RSI", row=3, col=1)
+    fig.update_yaxes(title_text="거래량", row=4, col=1)
 
     st.plotly_chart(fig, use_container_width=True)
 
@@ -1688,13 +1959,13 @@ def display_technical_analysis(
         )
 
     # 각 그래프에 대한 설명을 토글로 추가
-    with st.expander("주가 차트 설명"):
+    with st.expander("캔들차트 설명"):
         st.markdown(
             """
-        **주가 차트**: 일일 종가와 이동평균선을 보여줍니다. 추세를 파악하는 데 도움이 됩니다.
-        - 종가: 해당 일의 마지막 거래 가격
-        - 50일 이동평균: 최근 50일간의 평균 주가. 단기 추세 파악에 유용
-        - 200일 이동평균: 최근 200일간의 평균 주가. 장기 추세 파악에 유용
+        **캔들차트**: 시가, 고가, 저가, 종가를 시각화하여 가격 변동을 한눈에 보여줍니다.
+        - 빨간색(양봉): 종가가 시가보다 높을 때
+        - 파란색(음봉): 종가가 시가보다 낮을 때
+        - 이동평균선: 50일(주황색), 200일(보라색) 이동평균선을 표시하여 추세를 파악합니다.
         """
         )
 
