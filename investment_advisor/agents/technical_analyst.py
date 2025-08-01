@@ -13,6 +13,7 @@ from langchain.prompts import PromptTemplate
 import ta
 
 from .base import InvestmentAgent
+from ..data.simple_fetcher import SimpleStockFetcher
 
 logger = logging.getLogger(__name__)
 
@@ -22,62 +23,89 @@ class TechnicalAnalystAgent(InvestmentAgent):
     
     name: str = Field(default="기술분석가")
     description: str = "주가 움직임과 패턴에 대한 기술적 분석을 수행합니다."
+    simple_fetcher: SimpleStockFetcher = Field(default_factory=SimpleStockFetcher)
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
     prompt: PromptTemplate = PromptTemplate(
         input_variables=["company", "technical_data", "market"],
         template="""
-        {company}의 다음 기술적 지표를 바탕으로 종합적인 기술적 분석을 수행해주세요:
+        당신은 15년 경력의 전문 기술분석가입니다. {company} ({market})의 차트 패턴과 기술지표를 종합 분석해주세요:
         
         기술적 데이터: {technical_data}
         
-        1. 현재 가격 분석:
-           - 현재 가격 수준과 최근 추세를 평가해주세요.
-           - 52주 최고/최저 대비 현재 위치를 분석해주세요.
-        
-        2. 추세 분석:
-           - 단기(20일), 중기(50일), 장기(200일) 이동평균선과의 관계를 분석해주세요.
-           - 현재 추세의 강도와 지속 가능성을 평가해주세요.
-        
-        3. 모멘텀 지표:
-           - RSI 수준과 과매수/과매도 상태를 평가해주세요.
-           - MACD 신호와 추세 전환 가능성을 분석해주세요.
-        
-        4. 지지선과 저항선:
-           - 주요 지지선과 저항선을 식별해주세요.
-           - 돌파 가능성과 그에 따른 시나리오를 제시해주세요.
-        
-        5. 거래량 분석:
-           - 최근 거래량 패턴과 가격 움직임의 관계를 분석해주세요.
-           - 거래량이 시사하는 바를 설명해주세요.
-        
-        6. 매매 전략:
-           - 적정 매수 가격과 그 근거를 제시해주세요.
-           - 목표 가격과 손절 가격을 설정하고 설명해주세요.
-           - 단기/중기/장기 투자 전략을 구분하여 제안해주세요.
-        
-        7. 기술적 전망:
-           - 향후 1-3개월간의 기술적 전망을 제시해주세요.
-           - 주의해야 할 기술적 신호나 패턴을 설명해주세요.
-        
-        시장: {market}
-        
-        분석은 객관적이고 데이터에 기반해야 하며, 기술적 지표의 한계도 언급해주세요.
+        **1. 차트 패턴 및 추세 분석**
+           - 현재가 vs 이동평균: MA20({technical_data}), MA50, MA200 배열 상태 분석
+           - 52주 레인지 내 위치: 현재 {technical_data} vs 최고가/최저가 상대적 위치 (%)
+           - **추세 방향: 상승/하락/횡보 중 명확히 판단**
+           - 추세 강도: 약함/보통/강함 (이동평균 기울기 기준)
+
+        **2. 모멘텀 및 오실레이터 신호**
+           - RSI({technical_data}): 과매수(70↑)/중립(30-70)/과매도(30↓) 구간 분석
+           - MACD: 신호선 교차, 히스토그램 분석으로 모멘텀 변화 예측
+           - **모멘텀 상태: 강세/약세/중립 중 하나로 결론**
+
+        **3. 지지/저항 레벨 (구체적 가격 제시)**
+           - **1차 지지선: ${technical_data} (근거: 최근 저점)**
+           - **1차 저항선: ${technical_data} (근거: 최근 고점)**
+           - **핵심 지지선: ${technical_data} (이탈 시 추가 하락 예상)**
+           - 돌파 시나리오: 저항선 돌파 시 목표가격 및 확률
+
+        **4. 거래량 분석 및 투자심리**
+           - 최근 거래량({technical_data}) vs 20일 평균 비교
+           - 가격 상승/하락 시 거래량 증감 패턴 분석
+           - **거래량 신호: 매수세 강화/약화, 매도세 강화/약화**
+
+        **5. 리스크 관리 전략**
+           - **추천 매수가: ${technical_data} (현재가 대비 할인율 적용)**
+           - **목표 수익가: ${technical_data} (기술적 저항선 기준)**
+           - **손절가: ${technical_data} (주요 지지선 하회 시)**
+           - 위험/수익 비율: 1:X 형태로 제시
+
+        **6. 단기 트레이딩 신호 (1-4주)**
+           - **매매신호: 강력매수/매수/관망/매도/강력매도**
+           - 진입 타이밍: 즉시/리트레이스먼트 후/패턴 완성 후
+           - **핵심 모니터링 포인트 3가지** 제시
+
+        **7. 위험 요인 및 주의사항**
+           - 현재 변동성 수준 평가 (일일 변동폭 {technical_data})
+           - 시장 전체 상황이 종목에 미치는 영향
+           - **기술적 분석 신뢰도: 높음/보통/낮음 (시장 환경 고려)**
+
+        ⚠️ 모든 가격은 구체적 수치로, 확률은 %로 제시하고, 애매한 표현 금지
         """
     )
     
     def _run(self, company: str, market: str) -> str:
         """Execute technical analysis."""
-        technical_data = self.get_technical_indicators(company, market)
-        technical_data = self._convert_numpy_types(technical_data)
-        
-        analysis = self.llm.invoke(
-            self.prompt.format(
-                company=company,
-                technical_data=str(technical_data),
-                market=market
+        try:
+            technical_data = self.get_technical_indicators(company, market)
+            technical_data = self._convert_numpy_types(technical_data)
+            
+            analysis = self.llm.invoke(
+                self.prompt.format(
+                    company=company,
+                    technical_data=str(technical_data),
+                    market=market
+                )
+            ).content
+            
+            # Determine confidence based on data quality
+            confidence = "높음" if technical_data.get("현재가") else "보통"
+            
+            # Validate technical analysis completeness
+            if not self.validate_analysis_completeness(analysis):
+                logger.warning(f"Technical analysis for {company} may be incomplete")
+                confidence = "보통"
+            
+            return self.format_response(analysis, confidence)
+            
+        except Exception as e:
+            logger.error(f"Error in technical analysis for {company}: {str(e)}")
+            return self.format_response(
+                f"기술적 분석 중 오류가 발생했습니다: {str(e)}", 
+                "낮음"
             )
-        ).content
-        
-        return f"## 기술분석가의 의견\n\n{analysis}"
     
     def get_technical_indicators(
         self, company: str, market: str

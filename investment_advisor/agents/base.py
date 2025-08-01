@@ -31,6 +31,15 @@ class InvestmentAgent(BaseTool, ABC):
         )
     )
 
+    # Standard response format for consistency
+    response_format: Dict[str, Any] = Field(default_factory=lambda: {
+        "confidence_level": "높음/보통/낮음",
+        "key_metrics": {},
+        "recommendations": [],
+        "risk_factors": [],
+        "time_horizon": "단기/중기/장기"
+    })
+
     def __init__(self, **data):
         super().__init__(**data)
         if "llm" not in data:
@@ -76,3 +85,45 @@ class InvestmentAgent(BaseTool, ABC):
         except Exception as e:
             logger.error(f"Error fetching data for {company}: {str(e)}")
             raise
+    
+    def format_response(self, analysis_text: str, confidence: str = "보통") -> str:
+        """
+        Format agent response with consistent structure.
+        
+        Args:
+            analysis_text: Raw analysis text from the agent
+            confidence: Confidence level (높음/보통/낮음)
+            
+        Returns:
+            Formatted response with consistent structure
+        """
+        header = f"## {self.name}의 분석 ({confidence} 신뢰도)\n\n"
+        
+        # Add data quality indicator
+        data_quality = "📊 **데이터 품질**: SimpleStockFetcher 기반 고품질 시뮬레이션\n\n"
+        
+        # Add timestamp
+        timestamp = f"🕒 **분석 시점**: {datetime.now().strftime('%Y-%m-%d %H:%M')}\n\n"
+        
+        footer = f"\n\n---\n*{self.name} | 신뢰도: {confidence} | AI 기반 분석*"
+        
+        return header + data_quality + timestamp + analysis_text + footer
+    
+    def validate_analysis_completeness(self, analysis: str) -> bool:
+        """
+        Validate that analysis contains required elements.
+        
+        Args:
+            analysis: Analysis text to validate
+            
+        Returns:
+            True if analysis meets minimum requirements
+        """
+        required_elements = [
+            "투자",  # Investment recommendation
+            "리스크", # Risk assessment  
+            "가격",  # Price analysis
+            "%"      # Numerical data
+        ]
+        
+        return all(element in analysis for element in required_elements)

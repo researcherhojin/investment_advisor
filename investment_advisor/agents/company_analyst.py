@@ -15,6 +15,7 @@ import yfinance as yf
 from pykrx import stock
 
 from .base import InvestmentAgent
+from ..data.simple_fetcher import SimpleStockFetcher
 
 logger = logging.getLogger(__name__)
 
@@ -24,57 +25,85 @@ class CompanyAnalystAgent(InvestmentAgent):
     
     name: str = Field(default="기업분석가")
     description: str = "기업의 재무, 경영 전략, 시장 포지션을 분석합니다."
+    simple_fetcher: SimpleStockFetcher = Field(default_factory=SimpleStockFetcher)
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+    
     prompt: PromptTemplate = PromptTemplate(
         input_variables=["company", "financials", "key_stats", "market"],
         template="""
-        {market} 시장의 {company}에 대한 다음 재무 데이터와 주요 통계를 바탕으로 종합적인 기업 분석을 수행해주세요:
+        당신은 20년 경력의 전문 기업분석가입니다. {market} 시장의 {company}에 대한 다음 재무 데이터를 바탕으로 심도 있는 기업 분석을 수행해주세요:
         
         재무 데이터: {financials}
         주요 통계: {key_stats}
         
-        1. 재무 상태 분석:
-           - 수익성, 성장성, 안정성 측면에서 기업의 재무 상태를 평가해주세요.
-           - 주요 재무 비율(예: ROE, 부채비율 등)의 의미를 설명하고 해석해주세요.
+        **1. 재무 건전성 종합 평가 (A-F 등급)**
+           - 수익성 분석: ROE {key_stats}를 동종업계 평균(15-20%)과 비교하여 평가
+           - 성장성 지표: 최근 3년간 매출 성장률 추정 및 지속가능성 분석
+           - 안정성 검토: 부채비율, 유동비율 등을 통한 재무안정성 평가
+           - **종합 재무등급을 A~F로 명확히 제시**
 
-        2. 경영 전략 분석:
-            - 기업의 주요 사업 부문과 각 부문의 성과를 분석해주세요.
-            - 기업의 경쟁 우위와 시장 포지셔닝을 평가해주세요.
+        **2. 밸류에이션 심층 분석**
+           - PER {key_stats}: 동종업계 평균 대비 할인/프리미엄 정도 분석
+           - PBR {key_stats}: 순자산 대비 주가의 적정성 평가  
+           - **현재 주가가 과대평가/적정평가/저평가인지 명확한 결론**
+           - 목표주가 산정 근거 제시 (DCF, PER 멀티플 등 활용)
 
-        3. 시장 환경 분석:
-            - 기업이 속한 산업의 현재 상황과 향후 전망을 제시해주세요.
-            - 주요 경쟁사와의 비교 분석을 수행해주세요.
+        **3. 경쟁력 및 시장 포지션**
+           - 해당 섹터({key_stats})에서의 경쟁우위 분석
+           - 시장점유율, 브랜드파워, 기술력 등 정성적 요소 평가
+           - 진입장벽과 대체재 위협 수준 분석
 
-        4. 투자 관점 분석:
-            - PER, PBR 등 주요 투자 지표를 해석하고, 기업의 현재 주가 수준에 대한 의견을 제시해주세요.
-            - 기업의 배당 정책과 주주 가치 창출 능력을 평가해주세요.
+        **4. 성장 동력 및 리스크**
+           - **3가지 핵심 성장동력** 구체적으로 제시
+           - **3가지 주요 리스크 요인** 명확히 식별
+           - 각 요인이 주가에 미칠 영향도를 상/중/하로 분류
 
-        5. 리스크 요인:
-            - 기업이 직면한 주요 리스크 요인을 식별하고 설명해주세요.
+        **5. 배당 및 주주환원 정책**
+           - 배당수익률 {key_stats} 분석 및 지속가능성 평가
+           - 자사주매입, 증배 등 주주환원 정책 평가
 
-        6. 향후 전망:
-            - 기업의 성장 가능성과 향후 전망을 제시해주세요.
+        **6. 투자 추천 의견 (필수)**
+           - **최종 투자의견: 강력매수/매수/보유/매도/강력매도 중 하나**
+           - **목표주가: 구체적 금액 제시**
+           - **투자 시계: 단기(3개월)/중기(6-12개월)/장기(1-3년)**
+           - **핵심 투자논리 3줄 요약**
 
-        7. 최종 투자 의견:
-            - 위의 분석을 종합하여 최종적으로 투자 의견(강력 매수, 매수, 보유, 매도, 강력 매도)을 제시하고 그 이유를 상세히 설명해주세요.
-
-        분석은 객관적이고 데이터에 기반한 것이어야 하며, 투자자가 정보에 입각한 결정을 내릴 수 있도록 충분한 근거를 제공해야 합니다.
+        ⚠️ 모든 수치는 구체적으로 언급하고, 애매한 표현("양호함", "괜찮음" 등) 대신 명확한 판단을 제시하세요.
         """
     )
     
     def _run(self, company: str, market: str) -> str:
         """Execute company analysis."""
-        financials, key_stats = self.get_financial_data(company, market)
-        
-        analysis = self.llm.invoke(
-            self.prompt.format(
-                company=company,
-                financials=str(financials),
-                key_stats=str(key_stats),
-                market=market
+        try:
+            financials, key_stats = self.get_financial_data(company, market)
+            
+            analysis = self.llm.invoke(
+                self.prompt.format(
+                    company=company,
+                    financials=str(financials),
+                    key_stats=str(key_stats),
+                    market=market
+                )
+            ).content
+            
+            # Determine confidence level based on data quality
+            confidence = "높음" if financials and key_stats else "보통"
+            
+            # Validate analysis completeness
+            if not self.validate_analysis_completeness(analysis):
+                logger.warning(f"Analysis for {company} may be incomplete")
+                confidence = "보통"
+            
+            return self.format_response(analysis, confidence)
+            
+        except Exception as e:
+            logger.error(f"Error in company analysis for {company}: {str(e)}")
+            return self.format_response(
+                f"기업 분석 중 오류가 발생했습니다: {str(e)}", 
+                "낮음"
             )
-        ).content
-        
-        return f"## 기업분석가의 의견\n\n{analysis}"
     
     def get_financial_data(
         self, company: str, market: str
@@ -127,36 +156,54 @@ class CompanyAnalystAgent(InvestmentAgent):
     def _get_us_financial_data(
         self, company: str
     ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-        """Get financial data for US stocks."""
+        """Get financial data for US stocks using SimpleStockFetcher."""
         try:
-            ticker = yf.Ticker(company)
+            # Use SimpleStockFetcher to avoid API issues
+            stock_data = self.simple_fetcher.fetch_stock_data(company, "미국장")
             
-            # Get financial statements
-            financials = {}
-            if not ticker.financials.empty:
-                financials = ticker.financials.to_dict()
-            
-            # Get key statistics
-            info = ticker.info
-            key_stats = {
-                "PER": info.get("trailingPE", "N/A"),
-                "PBR": info.get("priceToBook", "N/A"),
-                "ROE": info.get("returnOnEquity", "N/A"),
-                "Dividend Yield": info.get("dividendYield", "N/A"),
-                "Market Cap": info.get("marketCap", "N/A"),
-                "Beta": info.get("beta", "N/A"),
+            # Extract financial information
+            financials = {
+                "총수익": stock_data.get("Revenue", "N/A"),
+                "EPS": stock_data.get("EPS", "N/A"),
+                "현재가": stock_data.get("currentPrice", "N/A"),
+                "52주최고": stock_data.get("52주 최고가", "N/A"),
+                "52주최저": stock_data.get("52주 최저가", "N/A"),
+                "거래량": stock_data.get("거래량", "N/A"),
             }
             
+            # Key statistics for analysis
+            key_stats = {
+                "PER": stock_data.get("PER", "N/A"),
+                "PBR": stock_data.get("PBR", "N/A"),
+                "ROE": stock_data.get("ROE", "N/A"),
+                "배당수익률": stock_data.get("배당수익률", "N/A"),
+                "시가총액": stock_data.get("시가총액", "N/A"),
+                "베타": stock_data.get("베타", "N/A"),
+                "섹터": stock_data.get("섹터", "N/A"),
+                "산업": stock_data.get("산업", "N/A"),
+            }
+            
+            logger.info(f"Successfully generated financial data for {company} using SimpleStockFetcher")
+            
         except Exception as e:
-            logger.error(f"Error fetching US financial data: {str(e)}")
-            financials = {}
+            logger.error(f"Error generating financial data for {company}: {str(e)}")
+            financials = {
+                "총수익": "N/A",
+                "EPS": "N/A", 
+                "현재가": "N/A",
+                "52주최고": "N/A",
+                "52주최저": "N/A",
+                "거래량": "N/A",
+            }
             key_stats = {
                 "PER": "N/A",
                 "PBR": "N/A", 
                 "ROE": "N/A",
-                "Dividend Yield": "N/A",
-                "Market Cap": "N/A",
-                "Beta": "N/A",
+                "배당수익률": "N/A",
+                "시가총액": "N/A",
+                "베타": "N/A",
+                "섹터": "N/A",
+                "산업": "N/A",
             }
         
         return financials, key_stats

@@ -11,6 +11,7 @@ from langchain.prompts import PromptTemplate
 import requests
 
 from .base import InvestmentAgent
+from ..data.simple_fetcher import SimpleStockFetcher
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +59,8 @@ class MacroeconomistAgent(InvestmentAgent):
     )
     alpha_vantage_api_key: str = Field(default=None)
     
+    simple_fetcher: SimpleStockFetcher = Field(default_factory=SimpleStockFetcher)
+    
     def __init__(self, alpha_vantage_api_key: str = None, **data):
         super().__init__(**data)
         if alpha_vantage_api_key:
@@ -65,17 +68,36 @@ class MacroeconomistAgent(InvestmentAgent):
     
     def _run(self, economy: str, market: str) -> str:
         """Execute macroeconomic analysis."""
-        indicators = self.get_economic_indicators(market)
-        
-        analysis = self.llm.invoke(
-            self.prompt.format(economy=market, indicators=str(indicators))
-        ).content
-        
-        indicator_text = "\n".join(
-            [f"{key}: {value}" for key, value in indicators.items()]
-        )
-        
-        return f"## 거시경제전문가의 의견\n\n{analysis}\n\n현재 거시경제 지표:\n{indicator_text}"
+        try:
+            indicators = self.get_economic_indicators(market)
+            
+            analysis = self.llm.invoke(
+                self.prompt.format(economy=market, indicators=str(indicators))
+            ).content
+            
+            indicator_text = "\n".join(
+                [f"{key}: {value}" for key, value in indicators.items()]
+            )
+            
+            # Add indicator data to analysis
+            full_analysis = f"{analysis}\n\n**📊 현재 거시경제 지표:**\n{indicator_text}"
+            
+            # Determine confidence based on data availability
+            confidence = "높음" if indicators else "보통"
+            
+            # Validate macro analysis completeness
+            if not self.validate_analysis_completeness(full_analysis):
+                logger.warning(f"Macro analysis for {market} may be incomplete")
+                confidence = "보통"
+            
+            return self.format_response(full_analysis, confidence)
+            
+        except Exception as e:
+            logger.error(f"Error in macro analysis for {market}: {str(e)}")
+            return self.format_response(
+                f"거시경제 분석 중 오류가 발생했습니다: {str(e)}", 
+                "낮음"
+            )
     
     def get_economic_indicators(self, market: str) -> Dict[str, Any]:
         """
