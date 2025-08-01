@@ -11,6 +11,35 @@
 
 <br/>
 
+## ⚠️ API Rate Limiting 및 안정성 개선
+
+시스템 안정성과 Yahoo Finance API rate limiting (429 오류) 대응을 위한 다중 방어 시스템:
+
+### 1. 캐싱 및 성능 최적화
+- **고급 JSON 직렬화**: Pandas Timestamp, numpy 타입 등 완전 지원
+- **15분 캐시**: 동일 요청 시 캐시된 데이터 사용으로 API 호출 최소화
+- **스마트 요청 지연**: 1.5초 + 랜덤 지연으로 rate limiting 회피
+
+### 2. 다중 데이터 소스 지원
+- **Yahoo Finance**: 메인 데이터 소스
+- **Alpha Vantage API**: 백업 데이터 소스 (API 키 설정 시)
+- **모의 데이터**: 개발/테스트용 안전한 대체 데이터
+
+### 3. 로깅 시스템 최적화
+- **반복 메시지 필터링**: 동일 오류 메시지 최대 3회만 출력
+- **써드파티 라이브러리 로그 억제**: yfinance, langsmith 등 노이즈 로그 제거
+- **LangChain 비활성화**: API 키 없을 시 자동으로 tracing 비활성화
+
+### Alpha Vantage API 설정 (선택사항)
+```bash
+# .env 파일에 추가
+ALPHA_VANTAGE_API_KEY=your_api_key_here
+```
+
+무료 API 키 받기: https://www.alphavantage.co/support/#api-key
+
+<br/>
+
 ## 주요 기능
 
 -   기업 분석가, 산업 전문가, 거시경제 전문가, 기술 분석가, 리스크 관리자의 다각도 분석
@@ -63,7 +92,13 @@
 1. Streamlit 앱을 실행합니다:
 
     ```
-    streamlit run investment_advisor.py
+    streamlit run main.py
+    ```
+    
+    또는 빠른 시작 스크립트 사용:
+    
+    ```
+    ./quick_start.sh run
     ```
 
 2. 웹 브라우저에서 표시된 로컬 URL로 접속합니다.
@@ -89,11 +124,39 @@
 ```
 ai-investment-advisor/
 │
-├── investment_advisor.py
-├── requirements.txt
-├── README.md
-├── LICENSE
-├── .env
+├── main.py                            # 메인 애플리케이션 진입점
+├── investment_advisor/                # 리팩토링된 모듈 패키지
+│   ├── agents/                        # AI 에이전트들
+│   │   ├── base.py                    # 기본 에이전트 클래스
+│   │   ├── company_analyst.py         # 기업 분석가
+│   │   ├── industry_expert.py         # 산업 전문가
+│   │   ├── macroeconomist.py         # 거시경제 전문가
+│   │   ├── technical_analyst.py      # 기술 분석가
+│   │   └── risk_manager.py           # 리스크 관리자
+│   ├── data/                          # 데이터 수집 모듈
+│   │   ├── base.py                    # 기본 데이터 페처
+│   │   ├── korea_stock.py             # 한국 주식 데이터
+│   │   ├── us_stock.py                # 미국 주식 데이터
+│   │   └── yahoo_finance_alternative.py # 대체 데이터 소스
+│   ├── analysis/                      # 분석 로직
+│   │   ├── technical.py               # 기술적 분석
+│   │   └── fundamental.py             # 기본적 분석
+│   ├── ui/                            # UI 컴포넌트
+│   │   ├── components.py              # UI 컴포넌트
+│   │   └── layout.py                  # 레이아웃 관리
+│   └── utils/                         # 유틸리티 함수
+│       ├── config.py                  # 설정 관리
+│       ├── logging.py                 # 로깅 시스템
+│       └── json_encoder.py            # JSON 직렬화
+├── quick_start.sh                     # 빠른 시작 스크립트
+├── requirements.txt                   # 파이썬 패키지 목록
+├── README.md                          # 프로젝트 문서
+├── SETUP_GUIDE.md                     # 상세 설정 가이드
+├── TROUBLESHOOTING.md                 # 문제 해결 가이드
+├── LICENSE                            # 라이센스
+├── .env.example                       # 환경 변수 템플릿
+├── .env                               # 실제 환경 변수 (gitignore)
+├── .cache/                            # 데이터 캐시 디렉토리
 └── .gitignore
 ```
 

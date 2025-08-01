@@ -763,7 +763,9 @@ class InvestmentDecisionSystem:
                     raise ValueError(f"주가 데이터를 가져올 수 없습니다: {company}")
             else:
                 ticker = yf.Ticker(company)
+                # 티커 정보를 가져오는 부분 수정
                 df = ticker.history(start=start_date, end=end_date)
+
                 if df.empty:
                     raise ValueError(f"주가 데이터를 가져올 수 없습니다: {company}")
 
@@ -780,7 +782,6 @@ class InvestmentDecisionSystem:
                     "베타": info.get("beta", None),
                 }
 
-            # None 값을 '정보 없음'으로 대체
             info = {
                 k: v if v is not None and not pd.isna(v) else "정보 없음"
                 for k, v in info.items()
@@ -1485,7 +1486,7 @@ def recommend_today_stocks(market: str) -> pd.DataFrame:
             try:
                 # 티커 수정: '.'을 '-', '$' 제거
                 yf_ticker = ticker.replace(".", "-").replace("$", "")
-                stock_data = yf.Ticker(yf_ticker).history(period="3mo")
+                stock_data = yf.Ticker(yf_ticker).history(period="ytd")
                 if stock_data.empty:
                     continue
                 rsi = ta.momentum.RSIIndicator(stock_data["Close"]).rsi().iloc[-1]
