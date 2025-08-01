@@ -172,12 +172,8 @@ class AlternativeDataFetcher:
         df['Close'] = prices.astype(float)
         df['Volume'] = np.random.randint(1000000, 50000000, days).astype(int)
         
-        # Reset index to make it serializable
-        df.reset_index(inplace=True)
-        df.rename(columns={'index': 'Date'}, inplace=True)
-        
-        # Ensure consistent data types
-        df['Date'] = df['Date'].dt.date  # Convert to date only
+        # Keep datetime index for consistency with yfinance
+        # No need to reset index - pandas will handle datetime filtering
         df['Open'] = df['Open'].round(2)
         df['High'] = df['High'].round(2)
         df['Low'] = df['Low'].round(2)
