@@ -1,7 +1,7 @@
 """
 Metrics Display Module
 
-Handles the display of key metrics and indicators in the UI.
+Handles the display of key metrics and indicators in the UI with professional design.
 """
 
 import logging
@@ -10,6 +10,7 @@ import streamlit as st
 import pandas as pd
 
 from ..utils import PriceFormatter, DataFormatter
+from .styles import ProfessionalTheme, ComponentStyles
 
 logger = logging.getLogger(__name__)
 
@@ -23,30 +24,39 @@ class MetricsDisplay:
         self.data_formatter = DataFormatter()
     
     def display_key_metrics(self, metrics: Dict[str, Any]):
-        """Display key financial metrics in a grid layout."""
-        # Define metric groups
+        """Display key financial metrics using professional cards."""
+        # Define metric groups with icons
         metric_groups = {
-            "가격 정보": ["현재가", "52주 최고가", "52주 최저가", "거래량"],
-            "가치 지표": ["PER", "PBR", "ROE", "배당수익률"],
-            "기업 정보": ["시가총액", "베타", "EPS", "Revenue"],
+            "가격 정보": {
+                "metrics": ["현재가", "52주 최고가", "52주 최저가", "거래량"],
+                "icon": "💰"
+            },
+            "가치 지표": {
+                "metrics": ["PER", "PBR", "ROE", "배당수익률"],
+                "icon": "📊"
+            },
+            "기업 정보": {
+                "metrics": ["시가총액", "베타", "EPS", "Revenue"],
+                "icon": "🏢"
+            },
         }
         
         # Display each group
-        for group_name, metric_keys in metric_groups.items():
-            st.subheader(group_name)
+        for group_name, group_info in metric_groups.items():
+            st.markdown(f"### {group_name}")
             
             # Filter available metrics
             available_metrics = {
                 k: v for k, v in metrics.items() 
-                if k in metric_keys and v not in ["정보 없음", "N/A", None]
+                if k in group_info["metrics"] and v not in ["정보 없음", "N/A", None]
             }
             
             if available_metrics:
-                cols = st.columns(len(available_metrics))
+                cols = st.columns(min(len(available_metrics), 4))
                 
                 for i, (key, value) in enumerate(available_metrics.items()):
-                    with cols[i]:
-                        self._display_single_metric(key, value)
+                    with cols[i % 4]:
+                        self._display_professional_metric_card(key, value)
             else:
                 st.info(f"{group_name}에 대한 정보가 없습니다.")
     
@@ -276,6 +286,59 @@ class MetricsDisplay:
                 st.markdown(f"• {point}")
     
     # Helper methods
+    
+    def _display_professional_metric_card(self, key: str, value: Any):
+        """Display a professional metric card with glassmorphism design."""
+        # Format value based on key
+        if key in ["현재가", "52주 최고가", "52주 최저가"]:
+            formatted_value = self.price_formatter.format_price(value)
+            delta = None
+        elif key == "시가총액":
+            formatted_value = self.price_formatter.format_market_cap(value)
+            delta = None
+        elif key == "거래량":
+            formatted_value = self.price_formatter.format_volume(value)
+            delta = None
+        elif key in ["PER", "PBR"]:
+            formatted_value = self.price_formatter.format_ratio(value)
+            # Add delta for valuation metrics
+            if key == "PER":
+                if isinstance(value, (int, float)) and value > 0:
+                    if value < 15:
+                        delta = "저평가"
+                    elif value > 25:
+                        delta = "고평가"
+                    else:
+                        delta = "적정"
+            elif key == "PBR":
+                if isinstance(value, (int, float)) and value > 0:
+                    if value < 1:
+                        delta = "저평가"
+                    elif value > 2:
+                        delta = "고평가"
+                    else:
+                        delta = "적정"
+        elif key in ["ROE", "배당수익률"]:
+            formatted_value = self.data_formatter.format_percentage(value)
+            # Add interpretation for performance metrics
+            if key == "ROE":
+                if isinstance(value, (int, float)):
+                    if value > 15:
+                        delta = "우수"
+                    elif value > 10:
+                        delta = "양호"
+                    else:
+                        delta = "보통"
+        else:
+            formatted_value = self.data_formatter.safe_format_number(value)
+            delta = None
+        
+        # Create professional metric card using ProfessionalTheme
+        ProfessionalTheme.create_metric_card(
+            title=key,
+            value=formatted_value,
+            delta=delta
+        )
     
     def _display_single_metric(self, key: str, value: Any):
         """Display a single metric with appropriate formatting."""

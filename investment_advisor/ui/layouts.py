@@ -1,7 +1,7 @@
 """
 Layout Management Module
 
-Manages Streamlit UI layouts and page structure.
+Manages Streamlit UI layouts and page structure with professional design.
 """
 
 import logging
@@ -10,6 +10,7 @@ import streamlit as st
 from datetime import datetime
 
 from ..utils import get_config, InputValidator
+from .styles import ProfessionalTheme, ComponentStyles
 
 logger = logging.getLogger(__name__)
 
@@ -39,27 +40,32 @@ class LayoutManager:
     def setup_page(self):
         """Set up the Streamlit page configuration."""
         # Page config is now set in main.py before any imports
-        # Only inject custom CSS here
-        self._inject_custom_css()
+        # Inject professional CSS theme
+        ProfessionalTheme.inject_styles()
     
     def render_header(self):
-        """Render the application header."""
-        st.title(self.config.app_title)
-        st.markdown("---")
+        """Render the application header with professional design."""
+        # Create professional header
+        ProfessionalTheme.create_professional_header(
+            self.config.app_title,
+            "전문가급 AI 에이전트들의 종합적인 투자 분석 플랫폼"
+        )
         
-        # Display market status
+        # Display status indicators
         col1, col2, col3 = st.columns([2, 1, 1])
         
         with col1:
-            st.markdown("**다양한 AI 전문가의 종합적인 투자 분석**")
+            market_open = self.validator.is_market_hours(st.session_state.market)
+            if market_open:
+                ComponentStyles.create_status_indicator("success", "장 운영중")
+            else:
+                ComponentStyles.create_status_indicator("error", "장 마감")
         
         with col2:
-            market_open = self.validator.is_market_hours(st.session_state.market)
-            status = "🟢 장 운영중" if market_open else "🔴 장 마감"
-            st.markdown(f"**{status}**")
+            ComponentStyles.create_status_indicator("info", f"현재 시장: {st.session_state.market}")
         
         with col3:
-            st.markdown(f"**{datetime.now().strftime('%Y-%m-%d %H:%M')}**")
+            ComponentStyles.create_status_indicator("info", datetime.now().strftime('%H:%M'))
     
     def render_sidebar(self) -> Dict[str, Any]:
         """
@@ -69,7 +75,7 @@ class LayoutManager:
             Dictionary with user inputs
         """
         with st.sidebar:
-            st.header("📊 분석 설정")
+            st.header("분석 설정")
             
             # Market selection
             market = self._render_market_selection()
@@ -232,31 +238,33 @@ class LayoutManager:
         """, unsafe_allow_html=True)
     
     def _render_market_selection(self) -> str:
-        """Render market selection buttons."""
+        """Render market selection buttons with professional design."""
         st.markdown("### 시장 선택")
         
         col1, col2 = st.columns(2)
         
         with col1:
             if st.button(
-                "🇺🇸 미국장",
+                "미국 시장",
                 key="us_market_btn",
-                help="미국 주식 시장 선택",
-                disabled=st.session_state.analysis_started
+                help="미국 주식 시장 분석",
+                disabled=st.session_state.analysis_started,
+                type="primary" if st.session_state.market == "미국장" else "secondary"
             ):
                 st.session_state.market = "미국장"
         
         with col2:
             if st.button(
-                "🇰🇷 한국장",
-                key="kr_market_btn",
-                help="한국 주식 시장 선택",
-                disabled=st.session_state.analysis_started
+                "한국 시장",
+                key="kr_market_btn", 
+                help="한국 주식 시장 분석",
+                disabled=st.session_state.analysis_started,
+                type="primary" if st.session_state.market == "한국장" else "secondary"
             ):
                 st.session_state.market = "한국장"
         
-        # Display selected market
-        st.info(f"선택된 시장: **{st.session_state.market}**")
+        # Display selected market with professional indicator
+        ComponentStyles.create_status_indicator("info", f"선택된 시장: {st.session_state.market}")
         
         return st.session_state.market
     
@@ -369,10 +377,11 @@ class LayoutManager:
         
         # Main analysis button
         actions['analyze'] = st.button(
-            "🔍 분석 시작",
+            "분석 시작",
             type="primary",
             use_container_width=True,
-            key="analyze_btn"
+            key="analyze_btn",
+            help="AI 에이전트들이 종합적인 투자 분석을 수행합니다"
         )
         
         # Secondary actions
@@ -380,24 +389,26 @@ class LayoutManager:
         
         with col1:
             actions['reset'] = st.button(
-                "🔄 초기화",
+                "초기화",
                 use_container_width=True,
-                key="reset_btn"
+                key="reset_btn",
+                help="모든 설정을 초기 상태로 되돌립니다"
             )
         
         with col2:
             actions['export'] = st.button(
-                "📥 내보내기",
+                "결과 내보내기",
                 use_container_width=True,
                 key="export_btn",
-                disabled=st.session_state.analysis_results is None
+                disabled=st.session_state.analysis_results is None,
+                help="분석 결과를 JSON 파일로 다운로드합니다"
             )
         
         return actions
     
     def _render_info_section(self, market: str):
         """Render information section."""
-        with st.expander("ℹ️ 사용 방법", expanded=False):
+        with st.expander("사용 방법", expanded=False):
             st.markdown(f"""
             1. **시장 선택**: {market} 선택됨
             2. **티커 입력**: 분석할 종목의 티커를 입력
@@ -413,51 +424,73 @@ class LayoutManager:
         
         # Feature flags info
         if self.config.debug_mode:
-            with st.expander("🔧 디버그 정보", expanded=False):
+            with st.expander("시스템 정보", expanded=False):
                 st.json(self.config.to_dict())
     
     def _render_welcome_screen(self):
         """Render welcome screen when no analysis is active."""
+        # Professional welcome message
         st.markdown("""
-        ## 환영합니다! 👋
+        <div class="professional-info-box fade-in" style="text-align: center; margin: 2rem 0;">
+            <h2 style="color: #2C3E50; margin-bottom: 1rem;">전문가급 투자 분석을 시작하세요</h2>
+            <p style="color: #7F8C8D; font-size: 1.1rem; line-height: 1.6;">
+                5명의 전문 AI 에이전트가 실시간 데이터를 바탕으로<br>
+                종합적인 투자 인사이트를 제공합니다.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
         
-        AI 투자 자문 시스템은 여러 전문가 AI의 분석을 종합하여 
-        종합적인 투자 인사이트를 제공합니다.
-        
-        ### 제공되는 분석:
-        - 📊 **기술적 분석**: 차트 패턴, 지표, 추세 분석
-        - 📈 **기본적 분석**: 재무제표, 가치평가, 성장성 분석
-        - 🏢 **기업 분석**: 비즈니스 모델, 경쟁력, 전망
-        - 🏭 **산업 분석**: 산업 동향, 성장 전망, 규제 환경
-        - 🌍 **거시경제 분석**: 경제 지표, 시장 환경
-        - ⚠️ **리스크 분석**: 투자 위험 요소 평가
-        
-        ### 시작하기:
-        왼쪽 사이드바에서 분석할 종목을 선택하고 '분석 시작' 버튼을 클릭하세요.
-        """)
-        
-        # Show sample tickers
+        # Analysis capabilities grid
         col1, col2 = st.columns(2)
         
         with col1:
             st.markdown("""
-            **🇺🇸 인기 미국 주식**
-            - AAPL (Apple)
-            - MSFT (Microsoft)
-            - GOOGL (Google)
-            - AMZN (Amazon)
-            - TSLA (Tesla)
-            """)
+            <div class="professional-info-box slide-up">
+                <h4 style="color: #2C3E50; margin-bottom: 1rem;">분석 영역</h4>
+                <ul style="color: #7F8C8D; line-height: 1.8;">
+                    <li><strong>기술적 분석</strong> - 차트 패턴 및 지표 분석</li>
+                    <li><strong>기본적 분석</strong> - 재무제표 및 가치평가</li>
+                    <li><strong>기업 분석</strong> - 비즈니스 모델 및 경쟁력</li>
+                    <li><strong>산업 분석</strong> - 업계 동향 및 전망</li>
+                    <li><strong>거시경제 분석</strong> - 시장 환경 평가</li>
+                    <li><strong>리스크 분석</strong> - 투자 위험 요소</li>
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
         
         with col2:
             st.markdown("""
-            **🇰🇷 인기 한국 주식**
-            - 005930 (삼성전자)
-            - 000660 (SK하이닉스)
-            - 035720 (카카오)
-            - 035420 (네이버)
-            - 207940 (삼성바이오로직스)
-            """)
+            <div class="professional-info-box slide-up">
+                <h4 style="color: #2C3E50; margin-bottom: 1rem;">지원 시장</h4>
+                <div style="margin-bottom: 1.5rem;">
+                    <h5 style="color: #667eea;">미국 시장</h5>
+                    <p style="color: #7F8C8D; font-size: 0.9rem;">
+                        AAPL, MSFT, GOOGL, AMZN, TSLA 등<br>
+                        주요 상장 기업 분석 지원
+                    </p>
+                </div>
+                <div>
+                    <h5 style="color: #667eea;">한국 시장</h5>
+                    <p style="color: #7F8C8D; font-size: 0.9rem;">
+                        삼성전자, SK하이닉스, 카카오, 네이버 등<br>
+                        코스피/코스닥 상장 기업 분석
+                    </p>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        # Getting started guide
+        st.markdown("""
+        <div class="professional-info-box fade-in" style="margin-top: 2rem;">
+            <h4 style="color: #2C3E50; margin-bottom: 1rem;">분석 시작하기</h4>
+            <div style="color: #7F8C8D; line-height: 1.6;">
+                <strong>1단계:</strong> 사이드바에서 분석하고자 하는 시장을 선택하세요<br>
+                <strong>2단계:</strong> 종목 코드나 티커를 입력하세요<br>
+                <strong>3단계:</strong> 해당 기업의 산업 분류를 선택하세요<br>
+                <strong>4단계:</strong> '분석 시작' 버튼을 클릭하여 전문가 분석을 받으세요
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
     
     def _render_analysis_results(self, results: Dict[str, Any]):
         """Render analysis results."""

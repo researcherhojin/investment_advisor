@@ -17,18 +17,22 @@ logger = logging.getLogger(__name__)
 class ChartGenerator:
     """Generate interactive charts for stock analysis."""
     
-    def __init__(self, theme: str = "plotly_white"):
+    def __init__(self, theme: str = "plotly_dark"):
         self.theme = theme
         self.default_height = 800
         self.colors = {
-            'primary': '#1f77b4',
-            'secondary': '#ff7f0e',
-            'success': '#2ca02c',
-            'danger': '#d62728',
-            'warning': '#ff9800',
-            'info': '#17becf',
-            'up': '#26a69a',
-            'down': '#ef5350',
+            'primary': '#667eea',
+            'secondary': '#764ba2',
+            'accent': '#4ECDC4',
+            'success': '#26C6DA',
+            'danger': '#FF5722',
+            'warning': '#FFB74D',
+            'info': '#667eea',
+            'up': '#4ECDC4',
+            'down': '#FF5722',
+            'text': '#FFFFFF',
+            'background': 'rgba(0,0,0,0)',
+            'grid': 'rgba(255,255,255,0.1)',
         }
     
     def create_main_chart(
@@ -88,6 +92,9 @@ class ChartGenerator:
         
         # Update layout
         self._update_main_chart_layout(fig, ticker, market)
+        
+        # Add entrance animation
+        self._add_chart_animations(fig)
         
         return fig
     
@@ -261,7 +268,7 @@ class ChartGenerator:
     # Helper methods for adding chart components
     
     def _add_candlestick(self, fig: go.Figure, df: pd.DataFrame, row: int, col: int):
-        """Add candlestick chart."""
+        """Add professional candlestick chart with enhanced styling."""
         fig.add_trace(
             go.Candlestick(
                 x=df.index,
@@ -269,22 +276,37 @@ class ChartGenerator:
                 high=df['High'],
                 low=df['Low'],
                 close=df['Close'],
-                name='주가',
+                name='Price',
                 increasing_line_color=self.colors['up'],
-                decreasing_line_color=self.colors['down']
+                decreasing_line_color=self.colors['down'],
+                increasing_fillcolor=self.colors['up'],
+                decreasing_fillcolor=self.colors['down'],
+                line=dict(width=1),
+                hovertemplate='<b>%{x}</b><br>' +
+                            'Open: %{open}<br>' +
+                            'High: %{high}<br>' +
+                            'Low: %{low}<br>' +
+                            'Close: %{close}<br>' +
+                            '<extra></extra>'
             ),
             row=row, col=col
         )
     
     def _add_price_line(self, fig: go.Figure, df: pd.DataFrame, row: int, col: int):
-        """Add simple price line."""
+        """Add professional price line with smooth styling."""
         fig.add_trace(
             go.Scatter(
                 x=df.index,
                 y=df['Close'],
                 mode='lines',
-                name='종가',
-                line=dict(color=self.colors['primary'], width=2)
+                name='Close Price',
+                line=dict(
+                    color=self.colors['accent'], 
+                    width=2.5,
+                    shape='spline',
+                    smoothing=0.3
+                ),
+                hovertemplate='<b>%{x}</b><br>Close: %{y}<extra></extra>'
             ),
             row=row, col=col
         )
@@ -515,32 +537,164 @@ class ChartGenerator:
         )
     
     def _update_main_chart_layout(self, fig: go.Figure, ticker: str, market: str):
-        """Update main chart layout."""
+        """Update main chart layout with professional styling."""
         fig.update_layout(
             height=self.default_height,
             template=self.theme,
             title=dict(
-                text=f"{ticker} 기술적 분석",
-                font=dict(size=20)
+                text=f"{ticker} Technical Analysis",
+                font=dict(
+                    size=24,
+                    color=self.colors['text'],
+                    family="Inter, sans-serif"
+                ),
+                x=0.5,
+                xanchor='center'
             ),
             showlegend=True,
             legend=dict(
                 orientation="h",
                 yanchor="bottom",
                 y=1.02,
-                xanchor="right",
-                x=1
+                xanchor="center",
+                x=0.5,
+                bgcolor='rgba(255,255,255,0.1)',
+                bordercolor='rgba(255,255,255,0.2)',
+                borderwidth=1,
+                font=dict(color=self.colors['text'])
             ),
             hovermode='x unified',
-            xaxis_rangeslider_visible=False
+            xaxis_rangeslider_visible=False,
+            plot_bgcolor=self.colors['background'],
+            paper_bgcolor=self.colors['background'],
+            font=dict(
+                color=self.colors['text'],
+                family="Inter, sans-serif"
+            ),
+            margin=dict(l=60, r=40, t=80, b=60),
+            # Add animation configuration
+            transition_duration=500,
+            transition_easing="cubic-in-out"
         )
         
-        # Update y-axis labels
+        # Update y-axis labels with professional styling
         currency = "원" if market == "한국장" else "$"
-        fig.update_yaxes(title_text=f"가격 ({currency})", row=1, col=1)
-        fig.update_yaxes(title_text="MACD", row=2, col=1)
-        fig.update_yaxes(title_text="RSI", row=3, col=1)
-        fig.update_yaxes(title_text="거래량", row=4, col=1)
         
-        # Update x-axis
-        fig.update_xaxes(title_text="날짜", row=4, col=1)
+        fig.update_yaxes(
+            title_text=f"Price ({currency})",
+            title_font=dict(color=self.colors['text'], family="Inter, sans-serif"),
+            tickfont=dict(color=self.colors['text']),
+            gridcolor=self.colors['grid'],
+            linecolor=self.colors['grid'],
+            row=1, col=1
+        )
+        
+        fig.update_yaxes(
+            title_text="MACD",
+            title_font=dict(color=self.colors['text'], family="Inter, sans-serif"),
+            tickfont=dict(color=self.colors['text']),
+            gridcolor=self.colors['grid'],
+            linecolor=self.colors['grid'],
+            row=2, col=1
+        )
+        
+        fig.update_yaxes(
+            title_text="RSI",
+            title_font=dict(color=self.colors['text'], family="Inter, sans-serif"),
+            tickfont=dict(color=self.colors['text']),
+            gridcolor=self.colors['grid'],
+            linecolor=self.colors['grid'],
+            row=3, col=1
+        )
+        
+        fig.update_yaxes(
+            title_text="Volume",
+            title_font=dict(color=self.colors['text'], family="Inter, sans-serif"),
+            tickfont=dict(color=self.colors['text']),
+            gridcolor=self.colors['grid'],
+            linecolor=self.colors['grid'],
+            row=4, col=1
+        )
+        
+        # Update x-axis with professional styling
+        fig.update_xaxes(
+            title_text="Date",
+            title_font=dict(color=self.colors['text'], family="Inter, sans-serif"),
+            tickfont=dict(color=self.colors['text']),
+            gridcolor=self.colors['grid'],
+            linecolor=self.colors['grid'],
+            row=4, col=1
+        )
+    
+    def _add_chart_animations(self, fig: go.Figure):
+        """Add professional animations to charts."""
+        # Add smooth transitions for all traces
+        for trace in fig.data:
+            if hasattr(trace, 'line'):
+                trace.line.update(dict(
+                    # Add subtle glow effect
+                    width=trace.line.width if trace.line.width else 2
+                ))
+        
+        # Update layout with animation config
+        fig.update_layout(
+            # Smooth transitions
+            transition={
+                'duration': 800,
+                'easing': 'cubic-in-out'
+            },
+            # Enable hover animations
+            hoverlabel=dict(
+                bgcolor="rgba(255,255,255,0.9)",
+                bordercolor="rgba(255,255,255,0.2)",
+                font_size=12,
+                font_family="Inter, sans-serif"
+            )
+        )
+    
+    def create_animated_metric_chart(self, value: float, max_value: float, title: str) -> go.Figure:
+        """Create an animated circular progress chart for metrics."""
+        
+        # Calculate percentage
+        percentage = min(value / max_value * 100, 100) if max_value > 0 else 0
+        
+        # Create gauge chart
+        fig = go.Figure(go.Indicator(
+            mode="gauge+number+delta",
+            value=percentage,
+            domain={'x': [0, 1], 'y': [0, 1]},
+            title={'text': title, 'font': {'color': self.colors['text'], 'family': 'Inter, sans-serif'}},
+            delta={'reference': 50, 'increasing': {'color': self.colors['up']}, 'decreasing': {'color': self.colors['down']}},
+            gauge={
+                'axis': {
+                    'range': [None, 100],
+                    'tickcolor': self.colors['text'],
+                    'tickfont': {'color': self.colors['text'], 'family': 'Inter, sans-serif'}
+                },
+                'bar': {'color': self.colors['accent']},
+                'bgcolor': "rgba(0,0,0,0)",
+                'borderwidth': 2,
+                'bordercolor': self.colors['grid'],
+                'steps': [
+                    {'range': [0, 25], 'color': 'rgba(255, 87, 34, 0.2)'},
+                    {'range': [25, 50], 'color': 'rgba(255, 183, 77, 0.2)'},
+                    {'range': [50, 75], 'color': 'rgba(78, 205, 196, 0.2)'},
+                    {'range': [75, 100], 'color': 'rgba(38, 198, 218, 0.2)'}
+                ],
+                'threshold': {
+                    'line': {'color': "red", 'width': 4},
+                    'thickness': 0.75,
+                    'value': 90
+                }
+            }
+        ))
+        
+        fig.update_layout(
+            paper_bgcolor=self.colors['background'],
+            plot_bgcolor=self.colors['background'],
+            font={'color': self.colors['text'], 'family': 'Inter, sans-serif'},
+            height=300,
+            margin=dict(l=20, r=20, t=60, b=20)
+        )
+        
+        return fig
