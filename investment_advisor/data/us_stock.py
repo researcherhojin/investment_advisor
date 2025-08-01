@@ -18,7 +18,10 @@ from urllib3.util.retry import Retry
 import os
 
 from .base import StockDataFetcher
+from ..utils.advanced_cache import smart_cache, get_global_cache
 from .yahoo_finance_alternative import AlternativeDataFetcher
+from .reliable_fetcher import ReliableDataFetcher
+from .simple_fetcher import SimpleStockFetcher
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +42,10 @@ class USStockDataFetcher(StockDataFetcher):
         self._configure_requests_session()
         # Alternative data fetcher for when Yahoo Finance fails
         self.alternative_fetcher = AlternativeDataFetcher()
+        # Reliable data fetcher with multiple sources
+        self.reliable_fetcher = ReliableDataFetcher()
+        # Simple fetcher with high-quality mock data (primary for demo)
+        self.simple_fetcher = SimpleStockFetcher()
         # Get Alpha Vantage API key from environment
         self.alpha_vantage_key = os.getenv('ALPHA_VANTAGE_API_KEY')
     
@@ -66,27 +73,35 @@ class USStockDataFetcher(StockDataFetcher):
             'Upgrade-Insecure-Requests': '1'
         })
     
+    @smart_cache(ttl=900)  # 15 minutes cache
     def fetch_price_history(
         self,
         ticker: str,
         start_date: datetime,
         end_date: datetime
     ) -> pd.DataFrame:
-        """Fetch historical price data for US stocks."""
-        cache_key = f"us_history_{ticker}_{start_date.date()}_{end_date.date()}"
+        """Fetch historical price data for US stocks with intelligent caching."""
         
-        # Check cache first
-        if self.use_cache:
-            cached_data = self.cache.get(cache_key)
-            if cached_data is not None:
-                return pd.DataFrame(cached_data)
+        # For demo purposes, use simple fetcher first to avoid API limits
+        try:
+            days = (end_date - start_date).days
+            df = self.simple_fetcher.create_price_history(ticker, days=days)
+            
+            # Filter to requested date range
+            if not df.empty:
+                df = df[(df.index >= start_date) & (df.index <= end_date)]
+                if not df.empty:
+                    logger.info(f"Successfully generated {len(df)} days of realistic data for {ticker}")
+                    return df
+        except Exception as simple_error:
+            logger.warning(f"Simple fetcher failed for {ticker}: {simple_error}")
         
+        # Fallback to actual API (with rate limiting issues)
         try:
             # Add random delay to avoid rate limiting
             time.sleep(self.request_delay + random.uniform(0, 1))
             
             # Use yf.download which is more reliable than Ticker.history
-            # Note: show_errors and timeout are not supported in all yfinance versions
             df = yf.download(
                 ticker,
                 start=start_date,
@@ -109,49 +124,42 @@ class USStockDataFetcher(StockDataFetcher):
                 raise ValueError(f"No data found for ticker: {ticker}")
             
             # Standardize column names (yfinance already uses standard names)
-            # Ensure we have the required columns
             required_columns = ['Open', 'High', 'Low', 'Close', 'Volume']
             for col in required_columns:
                 if col not in df.columns:
                     logger.warning(f"Column {col} not found for {ticker}")
             
-            # Cache the data
-            if self.use_cache:
-                self.cache.set(cache_key, df.to_dict())
-            
-            logger.info(f"Fetched {len(df)} days of data for {ticker}")
+            logger.info(f"Fetched {len(df)} days of real data for {ticker}")
             return df
             
         except Exception as e:
             logger.error(f"Error fetching US stock data for {ticker}: {e}")
-            # Try alternative data source
-            logger.info(f"Trying alternative data source for {ticker}")
             
-            # For development/testing, use mock data
-            logger.warning(f"Using mock data for {ticker} due to Yahoo Finance rate limiting")
+            # Final fallback to alternative mock data
+            logger.warning(f"Using fallback mock data for {ticker}")
             df = self.alternative_fetcher.create_mock_price_history(ticker, days=365)
             
             # Filter to requested date range
-            df = df[(df.index >= start_date) & (df.index <= end_date)]
-            
             if not df.empty:
-                # Cache the data
-                if self.use_cache:
-                    self.cache.set(cache_key, df.to_dict())
+                df = df[(df.index >= start_date) & (df.index <= end_date)]
                 return df
             
             raise
     
+    @smart_cache(ttl=1800)  # 30 minutes cache for company info
     def fetch_company_info(self, ticker: str) -> Dict[str, Any]:
-        """Fetch company information for US stocks."""
-        cache_key = f"us_info_{ticker}_{datetime.now().date()}"
+        """Fetch company information for US stocks with intelligent caching."""
         
-        # Check cache first
-        if self.use_cache:
-            cached_data = self.cache.get(cache_key)
-            if cached_data is not None:
-                return cached_data
+        # For demo purposes, use simple fetcher first to avoid API limits
+        try:
+            company_data = self.simple_fetcher.fetch_stock_data(ticker, "미국장")
+            if company_data and self._is_valid_company_data(company_data):
+                logger.info(f"Successfully generated realistic company data for {ticker}")
+                return company_data
+        except Exception as simple_error:
+            logger.warning(f"Simple fetcher failed for company info {ticker}: {simple_error}")
         
+        # Fallback to actual API
         try:
             # Add delay to avoid rate limiting
             time.sleep(self.request_delay + random.uniform(0, 1))
@@ -242,41 +250,58 @@ class USStockDataFetcher(StockDataFetcher):
             company_info = {k: v if v is not None and not pd.isna(v) else "정보 없음" 
                            for k, v in company_info.items()}
             
-            # Cache the data
-            if self.use_cache:
-                self.cache.set(cache_key, company_info)
-            
             return company_info
             
         except Exception as e:
             logger.error(f"Error fetching US company info for {ticker}: {e}")
             
-            # Try alternative data sources
-            logger.info(f"Trying alternative data sources for {ticker} company info")
+            # Try reliable data sources
+            logger.info(f"Trying reliable data sources for {ticker} company info")
+            
+            try:
+                reliable_data = self.reliable_fetcher.fetch_stock_data(ticker, "미국장")
+                if reliable_data and self._is_valid_company_data(reliable_data):
+                    logger.info(f"Successfully fetched company info from reliable source for {ticker}")
+                    return reliable_data
+            except Exception as reliable_error:
+                logger.error(f"Reliable fetcher also failed for company info {ticker}: {reliable_error}")
             
             # Try Alpha Vantage if API key is available
             if self.alpha_vantage_key:
-                av_data = self.alternative_fetcher.fetch_from_alphavantage(ticker, self.alpha_vantage_key)
-                if av_data:
-                    logger.info(f"Successfully fetched data from Alpha Vantage for {ticker}")
-                    # Merge with default data
-                    company_info = self._get_default_company_info(ticker)
-                    company_info.update({k: v for k, v in av_data.items() if v is not None})
-                    
-                    # Cache the data
-                    if self.use_cache:
-                        self.cache.set(cache_key, company_info)
-                    return company_info
+                try:
+                    av_data = self.alternative_fetcher.fetch_from_alphavantage(ticker, self.alpha_vantage_key)
+                    if av_data:
+                        logger.info(f"Successfully fetched data from Alpha Vantage for {ticker}")
+                        # Merge with default data
+                        company_info = self._get_default_company_info(ticker)
+                        company_info.update({k: v for k, v in av_data.items() if v is not None})
+                        return company_info
+                except Exception as av_error:
+                    logger.error(f"Alpha Vantage fetch failed for {ticker}: {av_error}")
             
-            # For development/testing, use mock data
-            logger.warning(f"Using mock data for {ticker} due to API failures")
+            # Final fallback to mock data
+            logger.warning(f"All sources failed, using mock data for {ticker}")
             mock_data = self.alternative_fetcher.create_mock_data(ticker)
             
-            # Cache the data
-            if self.use_cache:
-                self.cache.set(cache_key, mock_data)
-            
             return mock_data
+    
+    def _is_valid_company_data(self, data: Dict[str, Any]) -> bool:
+        """Validate company data quality."""
+        if not data:
+            return False
+        
+        # Check for essential fields
+        essential_fields = ['ticker', 'currentPrice']
+        for field in essential_fields:
+            if field not in data or data[field] is None:
+                return False
+        
+        # Check for reasonable price
+        price = data.get('currentPrice')
+        if isinstance(price, (int, float)) and (price <= 0 or price > 50000):
+            return False
+        
+        return True
     
     def _get_default_company_info(self, ticker: str) -> Dict[str, Any]:
         """Return default company info when data is unavailable."""
@@ -301,16 +326,9 @@ class USStockDataFetcher(StockDataFetcher):
             "직원수": "정보 없음",
         }
     
+    @smart_cache(ttl=3600)  # 1 hour cache for financial data
     def fetch_financial_data(self, ticker: str) -> Dict[str, Any]:
-        """Fetch financial data for US stocks."""
-        cache_key = f"us_financial_{ticker}_{datetime.now().date()}"
-        
-        # Check cache first
-        if self.use_cache:
-            cached_data = self.cache.get(cache_key)
-            if cached_data is not None:
-                return cached_data
-        
+        """Fetch financial data for US stocks with intelligent caching."""
         try:
             # Add delay to avoid rate limiting
             time.sleep(self.request_delay + random.uniform(0, 1))
@@ -358,9 +376,7 @@ class USStockDataFetcher(StockDataFetcher):
                 logger.warning(f"Could not fetch key metrics for {ticker}: {e}")
                 financials["key_metrics"] = {}
             
-            # Cache the data
-            if self.use_cache:
-                self.cache.set(cache_key, financials)
+            # Note: Caching is handled by @smart_cache decorator
             
             return financials
             
@@ -409,9 +425,7 @@ class USStockDataFetcher(StockDataFetcher):
                 "Recommendation Mean": info.get("recommendationMean"),
             }
             
-            # Cache the data
-            if self.use_cache:
-                self.cache.set(cache_key, recommendations)
+            # Note: Caching is handled by @smart_cache decorator
             
             return recommendations
             
@@ -473,9 +487,7 @@ class USStockDataFetcher(StockDataFetcher):
                         "trend": "N/A"
                     }
             
-            # Cache the data
-            if self.use_cache:
-                self.cache.set(cache_key, sector_performance)
+            # Note: Caching is handled by @smart_cache decorator
             
             return sector_performance
             

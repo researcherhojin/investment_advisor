@@ -433,6 +433,19 @@ class FundamentalAnalyzer:
             else:
                 return "소형주"
     
+    def _interpret_ps(self, ps_ratio: float) -> str:
+        """Interpret Price-to-Sales ratio."""
+        if ps_ratio > 10:
+            return "매우 높은 P/S 비율 (과대평가 가능성)"
+        elif ps_ratio > 5:
+            return "높은 P/S 비율"
+        elif ps_ratio > 2:
+            return "적정한 P/S 비율"
+        elif ps_ratio > 1:
+            return "낮은 P/S 비율"
+        else:
+            return "매우 낮은 P/S 비율 (저평가 가능성)"
+    
     def _interpret_dividend_yield(self, yield_pct: float) -> str:
         """Interpret dividend yield."""
         if yield_pct > 6:
