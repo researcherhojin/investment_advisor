@@ -15,6 +15,8 @@ from langchain.tools import BaseTool
 from langchain.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
 
+from ..core.exceptions import DataFetchError, AnalysisError
+
 logger = logging.getLogger(__name__)
 
 
@@ -78,13 +80,15 @@ class InvestmentAgent(BaseTool, ABC):
             df = fetcher.fetch_price_history(company, start_date, end_date)
 
             if df.empty:
-                raise ValueError(f"주가 데이터를 가져올 수 없습니다: {company}")
+                raise DataFetchError(f"주가 데이터를 가져올 수 없습니다: {company}", ticker=company)
 
             return df
 
+        except DataFetchError:
+            raise
         except Exception as e:
             logger.error(f"Error fetching data for {company}: {str(e)}")
-            raise
+            raise DataFetchError(f"Error fetching data for {company}: {str(e)}", ticker=company)
     
     def format_response(self, analysis_text: str, confidence: str = "보통") -> str:
         """

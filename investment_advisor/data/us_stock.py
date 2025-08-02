@@ -22,11 +22,13 @@ from ..utils.advanced_cache import smart_cache, get_global_cache
 from .yahoo_finance_alternative import AlternativeDataFetcher
 from .reliable_fetcher import ReliableDataFetcher
 from .simple_fetcher import SimpleStockFetcher
+from ..core.mixins import RetryMixin, CacheMixin
+from ..core.exceptions import DataFetchError, RateLimitError
 
 logger = logging.getLogger(__name__)
 
 
-class USStockDataFetcher(StockDataFetcher):
+class USStockDataFetcher(StockDataFetcher, RetryMixin):
     """Data fetcher for US stock market."""
     
     def __init__(self, use_cache: bool = True):
@@ -97,7 +99,7 @@ class USStockDataFetcher(StockDataFetcher):
             logger.warning(f"Simple fetcher failed for {ticker}: {simple_error}")
         
         # Fallback to actual API (with rate limiting issues)
-        try:
+        def fetch_with_yfinance():
             # Add random delay to avoid rate limiting
             time.sleep(self.request_delay + random.uniform(0, 1))
             
@@ -121,7 +123,7 @@ class USStockDataFetcher(StockDataFetcher):
                     df = df[(df.index >= start_date) & (df.index <= end_date)]
                 
             if df.empty:
-                raise ValueError(f"No data found for ticker: {ticker}")
+                raise DataFetchError(f"No data found for ticker: {ticker}", source="yfinance", ticker=ticker)
             
             # Standardize column names (yfinance already uses standard names)
             required_columns = ['Open', 'High', 'Low', 'Close', 'Volume']
@@ -131,6 +133,10 @@ class USStockDataFetcher(StockDataFetcher):
             
             logger.info(f"Fetched {len(df)} days of real data for {ticker}")
             return df
+        
+        try:
+            # Use retry mixin for API calls
+            return self.with_retry(fetch_with_yfinance, max_retries=3)
             
         except Exception as e:
             logger.error(f"Error fetching US stock data for {ticker}: {e}")
@@ -144,7 +150,7 @@ class USStockDataFetcher(StockDataFetcher):
                 df = df[(df.index >= start_date) & (df.index <= end_date)]
                 return df
             
-            raise
+            raise DataFetchError(f"Failed to fetch data for {ticker}", source="all", ticker=ticker)
     
     @smart_cache(ttl=1800)  # 30 minutes cache for company info
     def fetch_company_info(self, ticker: str) -> Dict[str, Any]:

@@ -16,6 +16,7 @@ from pykrx import stock
 
 from .base import InvestmentAgent
 from ..data.simple_fetcher import SimpleStockFetcher
+from ..core.exceptions import DataFetchError, AnalysisError
 
 logger = logging.getLogger(__name__)
 
@@ -98,11 +99,14 @@ class CompanyAnalystAgent(InvestmentAgent):
             
             return self.format_response(analysis, confidence)
             
+        except (DataFetchError, AnalysisError):
+            raise
         except Exception as e:
             logger.error(f"Error in company analysis for {company}: {str(e)}")
-            return self.format_response(
-                f"기업 분석 중 오류가 발생했습니다: {str(e)}", 
-                "낮음"
+            raise AnalysisError(
+                f"기업 분석 중 오류가 발생했습니다: {str(e)}",
+                agent=self.name,
+                stage="company_analysis"
             )
     
     def get_financial_data(

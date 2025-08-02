@@ -9,6 +9,8 @@ from typing import Dict, Any, Optional
 import pandas as pd
 import numpy as np
 
+from ..core.types import FundamentalScores, StockInfo
+
 logger = logging.getLogger(__name__)
 
 
@@ -18,7 +20,7 @@ class FundamentalAnalyzer:
     def __init__(self):
         self.industry_benchmarks = self._load_industry_benchmarks()
     
-    def analyze(self, financial_data: Dict[str, Any], market: str = "미국장") -> Dict[str, Any]:
+    def analyze(self, financial_data: StockInfo, market: str = "미국장") -> FundamentalScores:
         """
         Perform comprehensive fundamental analysis.
         

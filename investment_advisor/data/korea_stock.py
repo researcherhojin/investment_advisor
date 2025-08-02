@@ -15,11 +15,13 @@ import requests
 from bs4 import BeautifulSoup
 
 from .base import StockDataFetcher
+from ..core.mixins import RetryMixin
+from ..core.exceptions import DataFetchError
 
 logger = logging.getLogger(__name__)
 
 
-class KoreaStockDataFetcher(StockDataFetcher):
+class KoreaStockDataFetcher(StockDataFetcher, RetryMixin):
     """Data fetcher for Korean stock market."""
     
     def __init__(self, use_cache: bool = True):
