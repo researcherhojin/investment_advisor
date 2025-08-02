@@ -1,25 +1,22 @@
 """
-Analysis Orchestrator Domain Service
+Analysis Orchestrator
 
-Coordinates the execution of multiple AI agents for investment analysis.
-This is a domain service that encapsulates complex business logic.
+Domain service for orchestrating the complete analysis workflow.
 """
 
 import asyncio
+from typing import Dict, Any, Optional, Callable, List
 from datetime import datetime
 from decimal import Decimal
-from typing import Dict, List, Optional
-from uuid import UUID
 
 import structlog
 
 from domain.entities.analysis import (
     AnalysisSession,
     AgentAnalysis,
-    InvestmentDecisionEntity,
-    AnalysisStatus,
     AgentType,
     InvestmentDecision,
+    InvestmentDecisionType,
     RiskLevel
 )
 from domain.entities.stock import Stock
@@ -29,397 +26,249 @@ logger = structlog.get_logger(__name__)
 
 class AnalysisOrchestrator:
     """
-    Domain service for orchestrating investment analysis.
+    Orchestrates the complete investment analysis workflow.
     
-    Coordinates multiple AI agents, manages analysis workflow,
-    and consolidates results into final investment decisions.
+    Coordinates multiple AI agents and consolidates their findings
+    into a final investment decision.
     """
     
     def __init__(self):
-        self.agent_weights = {
-            AgentType.COMPANY_ANALYST: Decimal("1.2"),
-            AgentType.INDUSTRY_EXPERT: Decimal("1.0"),
-            AgentType.MACROECONOMIST: Decimal("0.8"),
-            AgentType.TECHNICAL_ANALYST: Decimal("1.1"),
-            AgentType.RISK_MANAGER: Decimal("1.3"),
-            AgentType.MEDIATOR: Decimal("1.0"),
-        }
+        # Agent execution order (excluding mediator)
+        self.agent_order = [
+            AgentType.COMPANY_ANALYST,
+            AgentType.INDUSTRY_EXPERT,
+            AgentType.MACROECONOMIST,
+            AgentType.TECHNICAL_ANALYST,
+            AgentType.RISK_MANAGER,
+        ]
     
     async def orchestrate_analysis(
         self,
         session: AnalysisSession,
         stock: Stock,
-        agent_executor_func,  # Function to execute individual agents
-        progress_callback: Optional[callable] = None
+        agent_executor_func: Callable,
+        progress_callback: Optional[Callable] = None
     ) -> Dict[AgentType, AgentAnalysis]:
         """
-        Orchestrate complete analysis using all available agents.
+        Orchestrate the complete analysis workflow.
         
         Args:
             session: Analysis session
             stock: Stock to analyze
             agent_executor_func: Function to execute individual agents
-            progress_callback: Optional progress callback
+            progress_callback: Optional callback for progress updates
             
         Returns:
-            Dictionary of agent analyses
+            Dictionary mapping agent types to their analysis results
         """
         logger.info(
             "Starting analysis orchestration",
             session_id=session.id,
-            stock_ticker=stock.ticker,
-            market=stock.market
+            stock_ticker=stock.ticker
         )
         
-        analyses = {}
-        total_agents = len(AgentType) - 1  # Exclude mediator from initial count
-        completed = 0
+        agent_analyses = {}
+        total_agents = len(self.agent_order) + 1  # +1 for mediator
+        
+        # Execute individual agents
+        for i, agent_type in enumerate(self.agent_order):
+            try:
+                if progress_callback:
+                    progress_percent = int((i / total_agents) * 80) + 10
+                    await progress_callback(
+                        f"{agent_type.value} 분석 중...",
+                        progress_percent
+                    )
+                
+                # Execute agent
+                start_time = datetime.utcnow()
+                result = await agent_executor_func(
+                    agent_type=agent_type,
+                    stock=stock,
+                    session=session
+                )
+                execution_time_ms = int((datetime.utcnow() - start_time).total_seconds() * 1000)
+                
+                # Create agent analysis entity
+                agent_analysis = AgentAnalysis(
+                    session_id=session.id,
+                    agent_type=agent_type,
+                    analysis_result=result.get("content", ""),
+                    confidence_score=Decimal(str(result.get("confidence", 0.7))),
+                    execution_time_ms=execution_time_ms,
+                    metadata=result
+                )
+                
+                agent_analyses[agent_type] = agent_analysis
+                
+                logger.info(
+                    "Agent analysis completed",
+                    agent_type=agent_type.value,
+                    confidence=agent_analysis.confidence_score,
+                    execution_time_ms=execution_time_ms
+                )
+                
+            except Exception as e:
+                logger.error(
+                    "Agent execution failed",
+                    agent_type=agent_type.value,
+                    error=str(e),
+                    exc_info=e
+                )
+                # Continue with other agents
+        
+        # Execute mediator agent with all results
+        if progress_callback:
+            await progress_callback("종합 분석 중재자 실행 중...", 90)
         
         try:
-            # Execute agents in parallel where possible
-            tasks = []
+            # Prepare agent analyses for mediator
+            agent_analyses_content = {
+                agent_type.value: analysis.analysis_result
+                for agent_type, analysis in agent_analyses.items()
+            }
             
-            # Core analysis agents (can run in parallel)
-            core_agents = [
-                AgentType.COMPANY_ANALYST,
-                AgentType.INDUSTRY_EXPERT,
-                AgentType.MACROECONOMIST,
-                AgentType.TECHNICAL_ANALYST,
-                AgentType.RISK_MANAGER,
-            ]
-            
-            for agent_type in core_agents:
-                task = asyncio.create_task(
-                    self._execute_agent_with_retry(
-                        agent_type, session, stock, agent_executor_func
-                    )
-                )
-                tasks.append((agent_type, task))
-            
-            # Wait for all core agents to complete
-            for agent_type, task in tasks:
-                try:
-                    analysis = await task
-                    analyses[agent_type] = analysis
-                    completed += 1
-                    
-                    if progress_callback:
-                        progress = int((completed / total_agents) * 90)  # Reserve 10% for mediator
-                        await progress_callback(
-                            f"{agent_type.value} 분석 완료 ({completed}/{total_agents})",
-                            progress
-                        )
-                    
-                    logger.info(
-                        "Agent analysis completed",
-                        agent_type=agent_type.value,
-                        session_id=session.id,
-                        confidence=analysis.confidence_score
-                    )
-                    
-                except Exception as e:
-                    logger.error(
-                        "Agent analysis failed",
-                        agent_type=agent_type.value,
-                        session_id=session.id,
-                        error=str(e)
-                    )
-                    # Create failed analysis record
-                    analyses[agent_type] = self._create_failed_analysis(
-                        agent_type, session.id, str(e)
-                    )
-            
-            # Execute mediator with results from other agents
-            if analyses:
-                try:
-                    mediator_analysis = await self._execute_mediator(
-                        session, stock, analyses, agent_executor_func
-                    )
-                    analyses[AgentType.MEDIATOR] = mediator_analysis
-                    
-                    if progress_callback:
-                        await progress_callback("중재자 분석 완료", 100)
-                    
-                except Exception as e:
-                    logger.error(
-                        "Mediator analysis failed",
-                        session_id=session.id,
-                        error=str(e)
-                    )
-                    analyses[AgentType.MEDIATOR] = self._create_failed_analysis(
-                        AgentType.MEDIATOR, session.id, str(e)
-                    )
-            
-            logger.info(
-                "Analysis orchestration completed",
-                session_id=session.id,
-                total_analyses=len(analyses),
-                successful_analyses=len([a for a in analyses.values() if a.confidence_score is not None])
+            # Execute mediator
+            mediator_result = await agent_executor_func(
+                agent_type=AgentType.MEDIATOR,
+                stock=stock,
+                session=session,
+                additional_context={"agent_analyses": agent_analyses_content}
             )
             
-            return analyses
+            # Create mediator analysis
+            mediator_analysis = AgentAnalysis(
+                session_id=session.id,
+                agent_type=AgentType.MEDIATOR,
+                analysis_result=mediator_result.get("content", ""),
+                confidence_score=Decimal(str(mediator_result.get("confidence", 0.8))),
+                execution_time_ms=mediator_result.get("execution_time_ms", 0),
+                metadata=mediator_result
+            )
+            
+            agent_analyses[AgentType.MEDIATOR] = mediator_analysis
             
         except Exception as e:
             logger.error(
-                "Analysis orchestration failed",
-                session_id=session.id,
+                "Mediator execution failed",
                 error=str(e),
                 exc_info=e
             )
-            raise
-    
-    async def _execute_agent_with_retry(
-        self,
-        agent_type: AgentType,
-        session: AnalysisSession,
-        stock: Stock,
-        agent_executor_func,
-        max_retries: int = 2
-    ) -> AgentAnalysis:
-        """Execute agent with retry logic."""
-        last_error = None
         
-        for attempt in range(max_retries + 1):
-            try:
-                start_time = datetime.utcnow()
-                
-                # Execute agent
-                result = await agent_executor_func(agent_type, stock, session)
-                
-                execution_time = int((datetime.utcnow() - start_time).total_seconds() * 1000)
-                
-                # Create analysis record
-                analysis = AgentAnalysis(
-                    session_id=session.id,
-                    agent_type=agent_type,
-                    agent_weight=self.agent_weights.get(agent_type, Decimal("1.0")),
-                    analysis_result=result["content"],
-                    confidence_score=result.get("confidence", Decimal("0.8")),
-                    execution_time_ms=execution_time
-                )
-                
-                logger.debug(
-                    "Agent execution successful",
-                    agent_type=agent_type.value,
-                    attempt=attempt + 1,
-                    execution_time_ms=execution_time
-                )
-                
-                return analysis
-                
-            except Exception as e:
-                last_error = e
-                if attempt < max_retries:
-                    wait_time = 2 ** attempt  # Exponential backoff
-                    logger.warning(
-                        "Agent execution failed, retrying",
-                        agent_type=agent_type.value,
-                        attempt=attempt + 1,
-                        wait_time=wait_time,
-                        error=str(e)
-                    )
-                    await asyncio.sleep(wait_time)
-                else:
-                    logger.error(
-                        "Agent execution failed after all retries",
-                        agent_type=agent_type.value,
-                        attempts=max_retries + 1,
-                        error=str(e)
-                    )
-        
-        raise last_error
-    
-    async def _execute_mediator(
-        self,
-        session: AnalysisSession,
-        stock: Stock,
-        analyses: Dict[AgentType, AgentAnalysis],
-        agent_executor_func
-    ) -> AgentAnalysis:
-        """Execute mediator agent with consolidated inputs."""
-        # Prepare mediator inputs
-        mediator_inputs = {
-            "stock_info": {
-                "ticker": stock.ticker,
-                "name": stock.name,
-                "market": stock.market,
-                "sector": stock.sector,
-                "industry": stock.industry
-            },
-            "agent_analyses": {
-                agent_type.value: {
-                    "content": analysis.analysis_result,
-                    "confidence": float(analysis.confidence_score or 0),
-                    "weight": float(analysis.agent_weight)
-                }
-                for agent_type, analysis in analyses.items()
-                if agent_type != AgentType.MEDIATOR
-            }
-        }
-        
-        start_time = datetime.utcnow()
-        
-        # Execute mediator
-        result = await agent_executor_func(AgentType.MEDIATOR, stock, session, mediator_inputs)
-        
-        execution_time = int((datetime.utcnow() - start_time).total_seconds() * 1000)
-        
-        return AgentAnalysis(
-            session_id=session.id,
-            agent_type=AgentType.MEDIATOR,
-            agent_weight=self.agent_weights[AgentType.MEDIATOR],
-            analysis_result=result["content"],
-            confidence_score=result.get("confidence", Decimal("0.8")),
-            execution_time_ms=execution_time
-        )
-    
-    def _create_failed_analysis(
-        self,
-        agent_type: AgentType,
-        session_id: UUID,
-        error_message: str
-    ) -> AgentAnalysis:
-        """Create a failed analysis record."""
-        return AgentAnalysis(
-            session_id=session_id,
-            agent_type=agent_type,
-            agent_weight=self.agent_weights.get(agent_type, Decimal("1.0")),
-            analysis_result=f"분석 실패: {error_message}",
-            confidence_score=None,
-            execution_time_ms=None
-        )
+        return agent_analyses
     
     def consolidate_decision(
         self,
-        analyses: Dict[AgentType, AgentAnalysis],
-        current_price: Optional[Decimal] = None
-    ) -> InvestmentDecisionEntity:
+        agent_analyses: Dict[AgentType, AgentAnalysis],
+        current_price: Optional[float] = None
+    ) -> InvestmentDecision:
         """
         Consolidate agent analyses into final investment decision.
         
-        This implements the business logic for decision making based on
-        weighted agent opinions and confidence scores.
+        Args:
+            agent_analyses: Dictionary of agent analyses
+            current_price: Current stock price
+            
+        Returns:
+            Final investment decision
         """
-        if AgentType.MEDIATOR not in analyses:
-            raise ValueError("Mediator analysis is required for decision consolidation")
+        # Get mediator analysis if available
+        mediator_analysis = agent_analyses.get(AgentType.MEDIATOR)
         
-        mediator_analysis = analyses[AgentType.MEDIATOR]
-        
-        # Extract decision from mediator analysis
-        decision_text = mediator_analysis.analysis_result.lower()
-        
-        # Simple decision extraction logic (can be enhanced with NLP)
-        if any(word in decision_text for word in ["매수", "buy", "구매"]):
-            decision = InvestmentDecision.BUY
-        elif any(word in decision_text for word in ["매도", "sell", "판매"]):
-            decision = InvestmentDecision.SELL
+        # If mediator succeeded, use its decision
+        if mediator_analysis:
+            decision = self._parse_mediator_decision(mediator_analysis)
         else:
-            decision = InvestmentDecision.HOLD
+            # Fallback: aggregate individual agent opinions
+            decision = self._aggregate_agent_decisions(agent_analyses)
         
-        # Calculate overall confidence
-        valid_analyses = [
-            a for a in analyses.values() 
-            if a.confidence_score is not None and a.agent_type != AgentType.MEDIATOR
-        ]
+        # Add session ID
+        decision.session_id = agent_analyses[next(iter(agent_analyses))].session_id
         
-        if valid_analyses:
-            # Weighted average confidence
-            total_weight = sum(a.agent_weight for a in valid_analyses)
-            weighted_confidence = sum(
-                a.confidence_score * a.agent_weight 
-                for a in valid_analyses
-            ) / total_weight
+        return decision
+    
+    def _parse_mediator_decision(self, mediator_analysis: AgentAnalysis) -> InvestmentDecision:
+        """Parse investment decision from mediator analysis."""
+        content = mediator_analysis.analysis_result.lower()
+        
+        # Extract decision type
+        if "매수" in content or "buy" in content:
+            decision_type = InvestmentDecisionType.BUY
+        elif "매도" in content or "sell" in content:
+            decision_type = InvestmentDecisionType.SELL
         else:
-            weighted_confidence = mediator_analysis.confidence_score or Decimal("0.5")
+            decision_type = InvestmentDecisionType.HOLD
         
-        # Determine risk level based on analyses
-        risk_analysis = analyses.get(AgentType.RISK_MANAGER)
-        if risk_analysis and risk_analysis.confidence_score:
-            if risk_analysis.confidence_score >= Decimal("0.8"):
-                risk_level = RiskLevel.LOW
-            elif risk_analysis.confidence_score >= Decimal("0.5"):
-                risk_level = RiskLevel.MEDIUM
-            else:
-                risk_level = RiskLevel.HIGH
-        else:
-            risk_level = RiskLevel.MEDIUM
+        # Extract confidence (use mediator's confidence)
+        confidence = mediator_analysis.confidence_score
         
-        return InvestmentDecisionEntity(
-            session_id=mediator_analysis.session_id,
-            decision=decision,
-            confidence=min(weighted_confidence, Decimal("1.0")),
+        # Extract risk level
+        risk_level = RiskLevel.MEDIUM  # Default
+        if "높은 위험" in content or "high risk" in content:
+            risk_level = RiskLevel.HIGH
+        elif "낮은 위험" in content or "low risk" in content:
+            risk_level = RiskLevel.LOW
+        
+        # Create decision
+        return InvestmentDecision(
+            decision=decision_type,
+            confidence=confidence,
             rationale=mediator_analysis.analysis_result,
-            price_target=self._extract_price_target(mediator_analysis.analysis_result),
-            stop_loss=self._extract_stop_loss(mediator_analysis.analysis_result),
-            time_horizon=self._extract_time_horizon(mediator_analysis.analysis_result),
+            time_horizon="3-6개월",
             risk_level=risk_level
         )
     
-    def _extract_price_target(self, analysis_text: str) -> Optional[Decimal]:
-        """Extract price target from analysis text."""
-        # Simple regex-based extraction (can be enhanced)
-        import re
+    def _aggregate_agent_decisions(
+        self,
+        agent_analyses: Dict[AgentType, AgentAnalysis]
+    ) -> InvestmentDecision:
+        """Aggregate individual agent decisions (fallback method)."""
+        # Count recommendations
+        buy_count = 0
+        sell_count = 0
+        hold_count = 0
+        total_confidence = Decimal("0")
         
-        # Look for patterns like "목표가 $150", "target price 150", etc.
-        patterns = [
-            r"목표가[:\s]*\$?([0-9,]+\.?[0-9]*)",
-            r"target price[:\s]*\$?([0-9,]+\.?[0-9]*)",
-            r"price target[:\s]*\$?([0-9,]+\.?[0-9]*)"
-        ]
+        for agent_type, analysis in agent_analyses.items():
+            if agent_type == AgentType.MEDIATOR:
+                continue
+            
+            content = analysis.analysis_result.lower()
+            if "매수" in content or "buy" in content:
+                buy_count += 1
+            elif "매도" in content or "sell" in content:
+                sell_count += 1
+            else:
+                hold_count += 1
+            
+            total_confidence += analysis.confidence_score or Decimal("0.5")
         
-        for pattern in patterns:
-            match = re.search(pattern, analysis_text, re.IGNORECASE)
-            if match:
-                try:
-                    price_str = match.group(1).replace(",", "")
-                    return Decimal(price_str)
-                except:
-                    continue
+        # Determine decision
+        if buy_count > sell_count and buy_count > hold_count:
+            decision_type = InvestmentDecisionType.BUY
+        elif sell_count > buy_count and sell_count > hold_count:
+            decision_type = InvestmentDecisionType.SELL
+        else:
+            decision_type = InvestmentDecisionType.HOLD
         
-        return None
-    
-    def _extract_stop_loss(self, analysis_text: str) -> Optional[Decimal]:
-        """Extract stop loss from analysis text."""
-        import re
+        # Average confidence
+        agent_count = len(agent_analyses) - (1 if AgentType.MEDIATOR in agent_analyses else 0)
+        avg_confidence = total_confidence / agent_count if agent_count > 0 else Decimal("0.5")
         
-        patterns = [
-            r"손절[:\s]*\$?([0-9,]+\.?[0-9]*)",
-            r"stop loss[:\s]*\$?([0-9,]+\.?[0-9]*)",
-            r"스톱로스[:\s]*\$?([0-9,]+\.?[0-9]*)"
-        ]
+        # Create rationale
+        rationale = f"""
+        종합 분석 결과:
+        - 매수 의견: {buy_count}개
+        - 매도 의견: {sell_count}개
+        - 보유 의견: {hold_count}개
         
-        for pattern in patterns:
-            match = re.search(pattern, analysis_text, re.IGNORECASE)
-            if match:
-                try:
-                    price_str = match.group(1).replace(",", "")
-                    return Decimal(price_str)
-                except:
-                    continue
+        최종 결정: {decision_type.value}
+        """
         
-        return None
-    
-    def _extract_time_horizon(self, analysis_text: str) -> Optional[str]:
-        """Extract time horizon from analysis text."""
-        import re
-        
-        # Look for time-related terms
-        time_patterns = {
-            r"단기": "단기 (1-3개월)",
-            r"중기": "중기 (3-12개월)", 
-            r"장기": "장기 (1년 이상)",
-            r"short.?term": "단기 (1-3개월)",
-            r"medium.?term": "중기 (3-12개월)",
-            r"long.?term": "장기 (1년 이상)",
-            r"([0-9]+)\s*개월": lambda m: f"{m.group(1)}개월",
-            r"([0-9]+)\s*months?": lambda m: f"{m.group(1)}개월"
-        }
-        
-        for pattern, replacement in time_patterns.items():
-            match = re.search(pattern, analysis_text, re.IGNORECASE)
-            if match:
-                if callable(replacement):
-                    return replacement(match)
-                return replacement
-        
-        return None
+        return InvestmentDecision(
+            decision=decision_type,
+            confidence=avg_confidence,
+            rationale=rationale,
+            time_horizon="3-6개월",
+            risk_level=RiskLevel.MEDIUM
+        )

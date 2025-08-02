@@ -20,6 +20,8 @@ from application.dtos.analysis_dto import (
 )
 from application.use_cases.analyze_stock import AnalyzeStockUseCase, GetAnalysisResultsUseCase
 from api.dependencies.use_cases import get_analyze_stock_use_case, get_analysis_results_use_case
+from api.dependencies.auth import get_current_user, get_current_user_optional
+from infrastructure.database.models import User
 
 router = APIRouter()
 
@@ -28,7 +30,8 @@ router = APIRouter()
 async def create_analysis(
     request: AnalysisRequestDTO,
     background_tasks: BackgroundTasks,
-    use_case: AnalyzeStockUseCase = Depends(get_analyze_stock_use_case)
+    use_case: AnalyzeStockUseCase = Depends(get_analyze_stock_use_case),
+    current_user: Optional[User] = Depends(get_current_user_optional)
 ):
     """
     Create new investment analysis.
@@ -42,8 +45,14 @@ async def create_analysis(
     - Mediator
     
     Returns complete analysis results including final investment decision.
+    
+    Note: If authenticated, analysis will be saved to user's history.
     """
     try:
+        # If user is authenticated, use their ID
+        if current_user:
+            request.user_id = str(current_user.id)
+        
         result = await use_case.execute(request)
         return result
         

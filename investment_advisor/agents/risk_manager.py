@@ -11,12 +11,12 @@ from datetime import datetime, timedelta
 import pandas as pd
 from pydantic import Field
 from langchain.prompts import PromptTemplate
-import yfinance as yf
 import FinanceDataReader as fdr
 
 from .base import InvestmentAgent
 from ..data import KoreaStockDataFetcher, USStockDataFetcher
 from ..data.simple_fetcher import SimpleStockFetcher
+from ..data.stable_fetcher import StableFetcher
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +27,7 @@ class RiskManagerAgent(InvestmentAgent):
     name: str = Field(default="리스크관리자")
     description: str = "잠재적 리스크를 평가하고 리스크 관리 전략을 제안합니다."
     simple_fetcher: SimpleStockFetcher = Field(default_factory=SimpleStockFetcher)
+    stable_fetcher: StableFetcher = Field(default_factory=StableFetcher)
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

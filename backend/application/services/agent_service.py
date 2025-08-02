@@ -17,6 +17,7 @@ from openai import AsyncOpenAI
 from domain.entities.analysis import AgentType, AnalysisSession
 from domain.entities.stock import Stock
 from core.config import get_settings
+from .streamlit_agent_adapter import StreamlitAgentAdapter
 
 logger = structlog.get_logger(__name__)
 
@@ -32,6 +33,7 @@ class AgentService:
     def __init__(self):
         self.settings = get_settings()
         self.openai_client = AsyncOpenAI(api_key=self.settings.openai_api_key)
+        self.streamlit_adapter = StreamlitAgentAdapter()
         
         # Agent prompts (migrated from legacy system)
         self.agent_prompts = {
@@ -41,6 +43,16 @@ class AgentService:
             AgentType.TECHNICAL_ANALYST: self._get_technical_analyst_prompt(),
             AgentType.RISK_MANAGER: self._get_risk_manager_prompt(),
             AgentType.MEDIATOR: self._get_mediator_prompt(),
+        }
+        
+        # Map AgentType enum to streamlit agent types
+        self.agent_type_map = {
+            AgentType.COMPANY_ANALYST: "company_analyst",
+            AgentType.INDUSTRY_EXPERT: "industry_expert",
+            AgentType.MACROECONOMIST: "macroeconomist",
+            AgentType.TECHNICAL_ANALYST: "technical_analyst",
+            AgentType.RISK_MANAGER: "risk_manager",
+            AgentType.MEDIATOR: "mediator",
         }
     
     async def execute_agent(
@@ -70,29 +82,38 @@ class AgentService:
         )
         
         try:
-            # Prepare context for the agent
-            context = await self._prepare_agent_context(stock, session, additional_context)
+            # Determine if we should use Streamlit agent or OpenAI
+            use_streamlit_agents = self.settings.use_streamlit_agents
             
-            # Get agent prompt
-            prompt = self.agent_prompts[agent_type]
-            
-            # Format prompt with context
-            formatted_prompt = await self._format_prompt(prompt, context)
-            
-            # Execute agent using OpenAI
-            result = await self._execute_openai_agent(formatted_prompt, agent_type)
-            
-            # Process and validate result
-            processed_result = await self._process_agent_result(result, agent_type)
+            if use_streamlit_agents:
+                # Use Streamlit agent adapter
+                result = await self._execute_streamlit_agent(agent_type, stock, session, additional_context)
+            else:
+                # Use OpenAI directly
+                # Prepare context for the agent
+                context = await self._prepare_agent_context(stock, session, additional_context)
+                
+                # Get agent prompt
+                prompt = self.agent_prompts[agent_type]
+                
+                # Format prompt with context
+                formatted_prompt = await self._format_prompt(prompt, context)
+                
+                # Execute agent using OpenAI
+                result = await self._execute_openai_agent(formatted_prompt, agent_type)
+                
+                # Process and validate result
+                result = await self._process_agent_result(result, agent_type)
             
             logger.info(
                 "Agent execution completed",
                 agent_type=agent_type.value,
                 stock_ticker=stock.ticker,
-                confidence=processed_result.get("confidence")
+                confidence=result.get("confidence"),
+                source=result.get("source", "openai")
             )
             
-            return processed_result
+            return result
             
         except Exception as e:
             logger.error(
@@ -276,6 +297,49 @@ class AgentService:
 
         최종적으로 투자 관점에서의 의견을 제시해주세요.
         """
+    
+    async def _execute_streamlit_agent(
+        self,
+        agent_type: AgentType,
+        stock: Stock,
+        session: AnalysisSession,
+        additional_context: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """Execute agent using Streamlit adapter."""
+        # Get streamlit agent type
+        streamlit_agent_type = self.agent_type_map.get(agent_type)
+        if not streamlit_agent_type:
+            raise ValueError(f"No Streamlit agent mapping for {agent_type}")
+        
+        # Convert market format if needed
+        market = stock.market
+        if stock.market == "US":
+            market = "미국장"
+        elif stock.market == "KR":
+            market = "한국장"
+        
+        # Execute agent
+        result = await self.streamlit_adapter.execute_agent(
+            agent_type=streamlit_agent_type,
+            ticker=stock.ticker,
+            industry=stock.industry or "Technology",
+            market=market,
+            additional_context=additional_context
+        )
+        
+        # Format result to match expected structure
+        if result.get("success"):
+            return {
+                "content": result.get("content", ""),
+                "confidence": Decimal(str(result.get("confidence", 0.7))),
+                "agent_type": agent_type.value,
+                "processed_at": result.get("timestamp", datetime.utcnow().isoformat()),
+                "recommendation": result.get("recommendation", "HOLD"),
+                "source": "streamlit_agent"
+            }
+        else:
+            # Handle failure
+            raise Exception(f"Streamlit agent failed: {result.get('error', 'Unknown error')}")
     
     def _get_industry_expert_prompt(self) -> str:
         return """

@@ -1,108 +1,88 @@
 """
 Health Check Routes
 
-Provides system health and status endpoints for monitoring.
+API endpoints for service health monitoring.
 """
 
-from datetime import datetime
 from typing import Dict, Any
+from datetime import datetime
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.config import get_settings, Settings
-from infrastructure.database.connection import database_manager
-from infrastructure.cache.redis_cache import cache_manager
+from api.dependencies.database import get_db_session
+from core.config import get_settings
 
 router = APIRouter()
 
 
-class HealthResponse(BaseModel):
-    """Health check response model."""
-    status: str
-    timestamp: datetime
-    version: str
-    environment: str
-    services: Dict[str, Any]
-
-
-@router.get("/", response_model=HealthResponse)
-async def health_check(settings: Settings = Depends(get_settings)) -> HealthResponse:
+@router.get("/", response_model=Dict[str, Any])
+async def health_check():
     """
     Basic health check endpoint.
     
-    Returns system status and basic information.
+    Returns service status and basic information.
     """
-    return HealthResponse(
-        status="healthy",
-        timestamp=datetime.utcnow(),
-        version="2.0.0",
-        environment=settings.environment,
-        services={
-            "api": "healthy",
-            "database": "unknown",
-            "cache": "unknown",
-        },
-    )
+    settings = get_settings()
+    
+    return {
+        "status": "healthy",
+        "service": settings.app_name,
+        "version": "1.0.0",
+        "timestamp": datetime.utcnow().isoformat(),
+        "environment": settings.environment
+    }
 
 
-@router.get("/detailed", response_model=HealthResponse)
-async def detailed_health_check(settings: Settings = Depends(get_settings)) -> HealthResponse:
+@router.get("/ready", response_model=Dict[str, Any])
+async def readiness_check(db: AsyncSession = Depends(get_db_session)):
     """
-    Detailed health check endpoint.
+    Readiness check endpoint.
     
-    Checks the status of all dependent services.
+    Verifies that all dependencies are available and functioning.
     """
-    services = {}
+    settings = get_settings()
+    checks = {
+        "database": False,
+        "cache": False,
+        "openai": bool(settings.openai_api_key)
+    }
     
-    # Check database connection
+    # Check database
     try:
-        await database_manager.execute("SELECT 1")
-        services["database"] = "healthy"
-    except Exception as e:
-        services["database"] = f"unhealthy: {str(e)}"
+        result = await db.execute(text("SELECT 1"))
+        checks["database"] = result.scalar() == 1
+    except Exception:
+        pass
     
-    # Check cache connection
+    # Check cache
     try:
+        from infrastructure.cache.redis_cache import cache_manager
         await cache_manager.ping()
-        services["cache"] = "healthy"
-    except Exception as e:
-        services["cache"] = f"unhealthy: {str(e)}"
-    
-    # Check AI service availability (basic check)
-    services["openai"] = "configured" if settings.openai_api_key else "not configured"
-    services["alpha_vantage"] = "configured" if settings.alpha_vantage_api_key else "not configured"
+        checks["cache"] = True
+    except Exception:
+        pass
     
     # Overall status
-    overall_status = "healthy" if all(
-        status == "healthy" or status.startswith("configured")
-        for status in services.values()
-    ) else "degraded"
+    all_ready = all(checks.values())
     
-    return HealthResponse(
-        status=overall_status,
-        timestamp=datetime.utcnow(),
-        version="2.0.0",
-        environment=settings.environment,
-        services=services,
-    )
+    return {
+        "status": "ready" if all_ready else "not_ready",
+        "checks": checks,
+        "timestamp": datetime.utcnow().isoformat()
+    }
 
 
-@router.get("/ready")
-async def readiness_check() -> Dict[str, str]:
+@router.get("/live", response_model=Dict[str, str])
+async def liveness_check():
     """
-    Kubernetes readiness probe endpoint.
+    Liveness check endpoint.
     
-    Returns simple status for container orchestration.
+    Simple endpoint to verify the service is running.
+    Used by container orchestrators for health monitoring.
     """
-    return {"status": "ready"}
-
-
-@router.get("/live")
-async def liveness_check() -> Dict[str, str]:
-    """
-    Kubernetes liveness probe endpoint.
-    
-    Returns simple status for container orchestration.
-    """
-    return {"status": "alive"}
+    return {
+        "status": "alive",
+        "timestamp": datetime.utcnow().isoformat()
+    }

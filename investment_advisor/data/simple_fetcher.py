@@ -178,6 +178,11 @@ class SimpleStockFetcher:
         
         return stock_data
     
+    def fetch_price_history(self, ticker: str, start_date: datetime, end_date: datetime) -> pd.DataFrame:
+        """Fetch price history for given date range."""
+        days = (end_date - start_date).days
+        return self.create_price_history(ticker, days)
+    
     def create_price_history(self, ticker: str, days: int = 365) -> pd.DataFrame:
         """Create realistic price history."""
         try:

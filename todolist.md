@@ -1,127 +1,401 @@
-# 📋 AI 투자 자문 시스템 - TODO List
+# AI Stock Investment Advisor - Development Roadmap
 
-## 🚨 High Priority (긴급)
+## 📋 Project Status Overview
 
-### 1. 실시간 데이터 연동
-- [ ] Yahoo Finance API 대체 솔루션 구현
-  - [ ] Alpha Vantage API 완전 통합
-  - [ ] Polygon.io API 연동 검토
-  - [ ] 한국 주식을 위한 한국투자증권 OpenAPI 연동
-- [ ] WebSocket을 통한 실시간 가격 업데이트
-- [ ] 데이터 소스 헬스체크 및 자동 전환 시스템
+**Current State:**
+- ✅ Streamlit application with clean modern UI
+- ✅ 6 specialized AI agents with decision orchestration
+- ✅ StableFetcher providing reliable data without Yahoo Finance dependency
+- ✅ Professional investment advice display with excellent UX
+- 🔄 Partial FastAPI backend implementation
+- 🔄 Basic React frontend setup
+- 🔄 Docker development environment
 
-### 2. 데이터 품질 개선
-- [ ] SimpleStockFetcher의 mock 데이터를 실제 historical 데이터로 교체
-- [ ] 재무제표 데이터 크롤링 또는 API 연동
-- [ ] 뉴스 및 공시 데이터 수집 시스템 구축
-
-### 3. 에러 핸들링 강화
-- [ ] API 실패 시 사용자 친화적 에러 메시지
-- [ ] 부분적 데이터 실패 시에도 분석 가능하도록 개선
-- [ ] 재시도 로직 및 circuit breaker 패턴 구현
-
-## 🎯 Medium Priority (중요)
-
-### 4. UI/UX 추가 개선
-- [ ] 다크 모드 지원
-- [ ] 모바일 반응형 디자인 최적화
-- [ ] 차트 인터랙티브 기능 강화 (줌, 팬, 기술적 지표 오버레이)
-- [ ] 로딩 애니메이션 및 스켈레톤 스크린
-- [ ] 분석 결과 PDF 내보내기 기능
-
-### 5. AI 에이전트 고도화
-- [ ] GPT-4 터보 모델로 업그레이드 옵션
-- [ ] 에이전트 간 협업 메커니즘 구현
-- [ ] 사용자 피드백 학습 시스템
-- [ ] 한국어/영어 다국어 분석 지원
-- [ ] 업종별 특화 분석 템플릿
-
-### 6. 성능 최적화
-- [ ] Redis 캐싱 레이어 실제 구현
-- [ ] 데이터베이스 연동 (PostgreSQL)
-- [ ] 비동기 처리 최적화
-- [ ] 대용량 데이터 처리를 위한 배치 시스템
-
-### 7. 보안 강화
-- [ ] API 키 관리 시스템 (Vault 연동)
-- [ ] 사용자 인증/인가 시스템
-- [ ] Rate limiting 구현
-- [ ] 데이터 암호화
-
-## 💡 Low Priority (개선사항)
-
-### 8. 기능 확장
-- [ ] 포트폴리오 관리 기능
-- [ ] 백테스팅 시스템
-- [ ] 알림/알람 기능 (가격 도달, 뉴스 등)
-- [ ] 소셜 트레이딩 기능 (다른 사용자 분석 공유)
-- [ ] AI 챗봇 인터페이스
-
-### 9. 분석 기능 강화
-- [ ] 기술적 지표 추가 (볼린저 밴드, 스토캐스틱 등)
-- [ ] 머신러닝 기반 가격 예측 모델
-- [ ] 감성 분석 (뉴스, 소셜 미디어)
-- [ ] 상관관계 분석 및 페어 트레이딩
-
-### 10. 인프라 및 배포
-- [ ] CI/CD 파이프라인 구축 (GitHub Actions)
-- [ ] Kubernetes 배포 설정
-- [ ] 모니터링 시스템 (Prometheus + Grafana)
-- [ ] 로그 수집 및 분석 (ELK Stack)
-
-## 🏗️ Architecture (장기 계획)
-
-### 11. 마이크로서비스 전환
-- [ ] FastAPI 백엔드 완성
-- [ ] React 프론트엔드 완성
-- [ ] GraphQL API 구현
-- [ ] 이벤트 기반 아키텍처 (Kafka/RabbitMQ)
-
-### 12. 확장성
-- [ ] 다중 시장 지원 (일본, 중국, 유럽)
-- [ ] 암호화폐 분석 지원
-- [ ] ETF 및 펀드 분석
-- [ ] 원자재 및 선물 시장 분석
-
-## 📚 Documentation
-
-### 13. 문서화
-- [ ] API 문서 자동화 (Swagger/OpenAPI)
-- [ ] 사용자 가이드 작성
-- [ ] 개발자 문서 보강
-- [ ] 비디오 튜토리얼 제작
-
-## 🧪 Testing
-
-### 14. 테스트 강화
-- [ ] 단위 테스트 커버리지 80% 이상
-- [ ] 통합 테스트 자동화
-- [ ] E2E 테스트 (Cypress/Playwright)
-- [ ] 부하 테스트 및 성능 벤치마크
-
-## 🎨 UI Themes (사용자 요청사항)
-
-### 15. 추가 UI 테마
-- [ ] 네이버 증권 스타일 테마
-- [ ] 블룸버그 터미널 스타일 (이미 있지만 개선)
-- [ ] 토스증권 스타일 미니멀 테마
-- [ ] 커스텀 테마 생성 기능
+**Target State:**
+- React + TypeScript frontend with Bloomberg Terminal-style UI
+- FastAPI backend following Clean Architecture
+- PostgreSQL + Redis data layer
+- Real-time data streaming with PWA capabilities
+- Production-ready Docker deployment
 
 ---
 
-## 우선순위 기준
+## 🔥 High Priority Tasks (Weeks 1-4)
 
-1. **긴급 (High)**: 현재 시스템의 안정성과 직접적으로 관련된 사항
-2. **중요 (Medium)**: 사용자 경험과 시스템 품질 향상에 필요한 사항
-3. **개선 (Low)**: 있으면 좋지만 당장 필수는 아닌 사항
+### Backend Architecture
+- [ ] **Complete FastAPI Backend Migration** *(Large)*
+  - Finish implementing Clean Architecture in `backend/` folder
+  - Migrate all agent logic to FastAPI services
+  - Dependencies: Current agent implementations
+  - Priority: Critical
 
-## 예상 개발 일정
+- [ ] **Implement Database Schema** *(Large)*
+  - Design PostgreSQL schema for user data, analysis history, cache
+  - Create database models with SQLAlchemy
+  - Implement Redis caching layer
+  - Priority: Critical
 
-- **Phase 1 (1-2주)**: High Priority 항목 1-3
-- **Phase 2 (3-4주)**: Medium Priority 항목 4-7
-- **Phase 3 (1-2개월)**: Low Priority 및 Architecture 항목
-- **Phase 4 (장기)**: 지속적인 개선 및 확장
+- [ ] **API Gateway & Authentication** *(Medium)*
+  - Implement JWT-based authentication
+  - Add rate limiting middleware
+  - Create API versioning strategy
+  - Dependencies: FastAPI backend
+  - Priority: High
+
+### Testing & Quality
+- [ ] **Core Test Suite Implementation** *(Large)*
+  - Unit tests for all agents (minimum 80% coverage)
+  - Integration tests for decision system
+  - Mock data testing for StableFetcher
+  - Priority: Critical
+
+- [ ] **Configuration Standardization** *(Medium)*
+  - Unify Streamlit and FastAPI configuration systems
+  - Implement environment-based config management
+  - Create configuration validation
+  - Priority: High
+
+### Performance
+- [ ] **Data Pipeline Optimization** *(Medium)*
+  - Implement intelligent caching strategy
+  - Optimize agent analysis workflow
+  - Add background job processing
+  - Priority: High
 
 ---
 
-*마지막 업데이트: 2025-08-02*
+## ⚡ Medium Priority Tasks (Weeks 5-12)
+
+### Frontend Development
+- [ ] **React Frontend Implementation** *(Large)*
+  - Build Bloomberg Terminal-style dashboard
+  - Implement real-time data updates
+  - Create responsive mobile layout
+  - Dependencies: FastAPI backend
+  - Priority: Medium
+
+- [ ] **PWA Implementation** *(Medium)*
+  - Add service workers for offline capability
+  - Implement push notifications for alerts
+  - Create installable web app
+  - Dependencies: React frontend
+  - Priority: Medium
+
+### UI/UX Consolidation
+- [ ] **UI Component Cleanup** *(Medium)*
+  - Consolidate 15+ UI files into unified component library
+  - Remove duplicate implementations
+  - Standardize design system
+  - Priority: Medium
+
+- [ ] **Advanced Analytics Dashboard** *(Large)*
+  - Portfolio tracking and management
+  - Historical analysis comparison
+  - Performance metrics visualization
+  - Priority: Medium
+
+### Data & AI Enhancements
+- [ ] **Real-time Data Streaming** *(Large)*
+  - Implement WebSocket connections
+  - Add live market data feeds
+  - Create real-time chart updates
+  - Dependencies: FastAPI backend
+  - Priority: Medium
+
+- [ ] **Enhanced AI Models** *(Medium)*
+  - Improve agent prompts and responses
+  - Add sentiment analysis capabilities
+  - Implement learning from user feedback
+  - Priority: Medium
+
+### Security & Compliance
+- [ ] **Security Hardening** *(Medium)*
+  - Input validation and sanitization
+  - SQL injection prevention
+  - CORS configuration
+  - Priority: Medium
+
+- [ ] **Audit Trail Implementation** *(Small)*
+  - Log all user actions and decisions
+  - Create compliance reporting
+  - Add data retention policies
+  - Priority: Medium
+
+---
+
+## 🔧 Low Priority Tasks (Weeks 13-20)
+
+### Advanced Features
+- [ ] **Backtesting Engine** *(Large)*
+  - Historical strategy testing
+  - Performance comparison tools
+  - Risk-adjusted returns analysis
+  - Priority: Low
+
+- [ ] **Alert System** *(Medium)*
+  - Price alerts and notifications
+  - Custom watchlist management
+  - Email/SMS notification system
+  - Priority: Low
+
+- [ ] **Social Features** *(Medium)*
+  - User-generated investment ideas
+  - Community discussion boards
+  - Expert analyst following
+  - Priority: Low
+
+### Market Data Expansion
+- [ ] **Additional Data Sources** *(Medium)*
+  - Cryptocurrency support
+  - International markets (Europe, Asia)
+  - Alternative investments (REITs, commodities)
+  - Priority: Low
+
+- [ ] **News Integration** *(Medium)*
+  - Real-time financial news feed
+  - News sentiment analysis
+  - Event-driven alerts
+  - Priority: Low
+
+### Advanced Analytics
+- [ ] **Machine Learning Pipeline** *(Large)*
+  - Predictive modeling for price movements
+  - Risk scoring algorithms
+  - Portfolio optimization AI
+  - Priority: Low
+
+---
+
+## 🏗️ Technical Debt & Code Quality
+
+### Code Organization
+- [ ] **Agent Code Refactoring** *(Medium)*
+  - Reduce code duplication across agents
+  - Implement shared base classes
+  - Standardize response formats
+  - Priority: Medium
+
+- [ ] **Import Optimization** *(Small)*
+  - Lazy loading for faster startup
+  - Remove unused imports
+  - Optimize dependency tree
+  - Priority: Low
+
+- [ ] **Error Handling Standardization** *(Medium)*
+  - Consistent error response format
+  - Better error logging and monitoring
+  - User-friendly error messages
+  - Priority: Medium
+
+### Performance Optimization
+- [ ] **Database Query Optimization** *(Medium)*
+  - Add database indexing strategy
+  - Implement query caching
+  - Optimize N+1 query problems
+  - Priority: Medium
+
+- [ ] **Memory Usage Optimization** *(Small)*
+  - Profile memory usage patterns
+  - Implement memory-efficient data structures
+  - Add garbage collection optimization
+  - Priority: Low
+
+---
+
+## 🧪 Testing & Quality Assurance
+
+### Test Coverage
+- [ ] **Frontend Testing Suite** *(Medium)*
+  - React component testing with Jest
+  - E2E testing with Playwright
+  - Visual regression testing
+  - Dependencies: React frontend
+  - Priority: Medium
+
+- [ ] **Load Testing** *(Small)*
+  - API performance testing
+  - Database stress testing
+  - Concurrent user simulation
+  - Priority: Low
+
+- [ ] **Security Testing** *(Medium)*
+  - Penetration testing
+  - Vulnerability scanning
+  - OWASP compliance check
+  - Priority: Medium
+
+### Quality Metrics
+- [ ] **Code Quality Monitoring** *(Small)*
+  - SonarQube integration
+  - Code coverage reporting
+  - Automated quality gates
+  - Priority: Low
+
+---
+
+## 📚 Documentation & Developer Experience
+
+### Technical Documentation
+- [ ] **API Documentation** *(Medium)*
+  - OpenAPI/Swagger documentation
+  - Interactive API explorer
+  - Code examples and tutorials
+  - Priority: Medium
+
+- [ ] **Architecture Documentation** *(Small)*
+  - System design documentation
+  - Database schema documentation
+  - Deployment architecture diagrams
+  - Priority: Low
+
+### User Documentation
+- [ ] **User Guide** *(Medium)*
+  - Getting started tutorial
+  - Feature walkthrough
+  - Best practices guide
+  - Priority: Medium
+
+- [ ] **Video Tutorials** *(Small)*
+  - Screen recordings for key features
+  - Investment strategy explanations
+  - Platform overview videos
+  - Priority: Low
+
+---
+
+## 🚀 Deployment & DevOps
+
+### Production Infrastructure
+- [ ] **Production Docker Setup** *(Large)*
+  - Multi-stage Docker builds
+  - Docker Compose for full stack
+  - Container orchestration with Kubernetes
+  - Priority: Medium
+
+- [ ] **CI/CD Pipeline** *(Medium)*
+  - GitHub Actions workflow
+  - Automated testing and deployment
+  - Environment promotion strategy
+  - Priority: Medium
+
+- [ ] **Monitoring & Observability** *(Medium)*
+  - Application performance monitoring
+  - Error tracking with Sentry
+  - Business metrics dashboard
+  - Priority: Medium
+
+### Infrastructure as Code
+- [ ] **Terraform Configuration** *(Medium)*
+  - AWS/Azure infrastructure automation
+  - Environment provisioning
+  - Disaster recovery setup
+  - Priority: Low
+
+- [ ] **Backup & Recovery** *(Small)*
+  - Database backup automation
+  - Point-in-time recovery
+  - Data retention policies
+  - Priority: Low
+
+---
+
+## 🔮 Future Architecture & Innovation
+
+### Scalability
+- [ ] **Microservices Architecture** *(Large)*
+  - Service decomposition strategy
+  - API gateway implementation
+  - Service mesh for inter-service communication
+  - Priority: Low
+
+- [ ] **Event-Driven Architecture** *(Large)*
+  - Message queue implementation
+  - Event sourcing for audit trail
+  - CQRS pattern implementation
+  - Priority: Low
+
+### AI/ML Platform
+- [ ] **MLOps Pipeline** *(Large)*
+  - Model training automation
+  - A/B testing for AI recommendations
+  - Model performance monitoring
+  - Priority: Low
+
+- [ ] **AI Agent Marketplace** *(Large)*
+  - Plugin architecture for custom agents
+  - Community-developed analysis tools
+  - Agent performance benchmarking
+  - Priority: Low
+
+### Mobile Applications
+- [ ] **React Native Mobile App** *(Large)*
+  - Native mobile experience
+  - Push notifications
+  - Offline functionality
+  - Priority: Low
+
+---
+
+## 📊 Success Metrics & KPIs
+
+### Technical Metrics
+- **Performance**: API response time < 200ms, Page load time < 1s
+- **Reliability**: 99.9% uptime, Zero critical bugs in production
+- **Security**: Zero security vulnerabilities, OWASP compliance
+- **Code Quality**: 80%+ test coverage, A-grade code quality
+
+### Business Metrics
+- **User Engagement**: Daily active users, Session duration
+- **Feature Adoption**: Analysis completion rate, User retention
+- **Accuracy**: Investment recommendation success rate
+- **User Satisfaction**: Net Promoter Score, User feedback ratings
+
+---
+
+## 🏃‍♂️ Sprint Planning Recommendations
+
+### Sprint 1-2 (Weeks 1-2): Foundation
+- Complete FastAPI backend migration
+- Implement core database schema
+- Add basic test suite
+
+### Sprint 3-4 (Weeks 3-4): Stability
+- Configuration standardization
+- Performance optimization
+- Security implementation
+
+### Sprint 5-8 (Weeks 5-8): Frontend
+- React frontend development
+- UI component consolidation
+- Real-time data implementation
+
+### Sprint 9-12 (Weeks 9-12): Enhancement
+- Advanced features
+- PWA implementation
+- Enhanced AI capabilities
+
+### Sprint 13-16 (Weeks 13-16): Scale
+- Production deployment
+- Monitoring and observability
+- Performance optimization
+
+### Sprint 17-20 (Weeks 17-20): Innovation
+- Advanced analytics
+- ML pipeline
+- Future architecture planning
+
+---
+
+## 🎯 Next Steps
+
+1. **Week 1**: Start with FastAPI backend migration and database schema design
+2. **Set up development environment**: Ensure Docker development environment is working
+3. **Create project board**: Set up GitHub Projects or similar for task tracking
+4. **Define MVP scope**: Prioritize features for minimum viable product
+5. **Team planning**: Allocate resources based on expertise and availability
+
+---
+
+*Last Updated: August 2025*
+*Total Estimated Effort: 20 weeks for full implementation*
+*Current Progress: ~30% complete (Streamlit MVP functional)*

@@ -1,32 +1,24 @@
 """
 FastAPI Main Application
 
-Entry point for the AI Investment Advisory System API.
-Implements Clean Architecture principles with proper dependency injection.
+Entry point for the AI Investment Advisory API.
 """
 
+import uvicorn
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from starlette.middleware.sessions import SessionMiddleware
+
 import structlog
-import sys
-import os
 
-# Add the backend directory to Python path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-from api.routes import health, stocks, analysis, agents
-from api.middleware.logging import LoggingMiddleware
-from api.middleware.rate_limiting import RateLimitingMiddleware
-from infrastructure.database.connection import database_manager
-from infrastructure.cache.redis_cache import cache_manager
 from core.config import get_settings
+from infrastructure.database.connection import database_manager
+from api.routes import health, analysis, stocks, auth
 
-# Configure structured logging
+# Configure logging
 structlog.configure(
     processors=[
         structlog.stdlib.filter_by_level,
@@ -36,8 +28,7 @@ structlog.configure(
         structlog.processors.TimeStamper(fmt="iso"),
         structlog.processors.StackInfoRenderer(),
         structlog.processors.format_exc_info,
-        structlog.processors.UnicodeDecoder(),
-        structlog.processors.JSONRenderer()
+        structlog.dev.ConsoleRenderer()
     ],
     context_class=dict,
     logger_factory=structlog.stdlib.LoggerFactory(),
@@ -48,61 +39,70 @@ logger = structlog.get_logger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Application lifespan manager for startup and shutdown tasks."""
+async def lifespan(app: FastAPI):
+    """
+    Manage application lifecycle.
+    
+    Handles startup and shutdown events.
+    """
+    # Startup
+    logger.info("Starting AI Investment Advisory API")
     settings = get_settings()
     
-    logger.info("Starting AI Investment Advisory API", version="2.0")
-    
+    # Initialize database connection
     try:
-        # Initialize database connection
         await database_manager.connect()
-        logger.info("Database connected successfully")
+        logger.info("Database connection established")
         
-        # Initialize cache connection
-        await cache_manager.connect()
-        logger.info("Cache connected successfully")
-        
-        # Perform database migrations if needed
+        # Run migrations if enabled
         if settings.auto_migrate:
-            await database_manager.migrate()
-            logger.info("Database migrations completed")
-    
+            logger.info("Running database migrations")
+            # TODO: Add alembic migration runner
+            
     except Exception as e:
-        logger.error("Failed to initialize services", error=str(e))
-        # Continue startup even if some services fail (for development)
+        logger.error("Failed to initialize database", error=str(e))
+        raise
+    
+    # Initialize cache
+    try:
+        from infrastructure.cache.redis_cache import cache_manager
+        await cache_manager.connect()
+        logger.info("Cache connection established")
+    except Exception as e:
+        logger.warning("Failed to initialize cache", error=str(e))
     
     yield
     
-    # Cleanup on shutdown
+    # Shutdown
     logger.info("Shutting down AI Investment Advisory API")
+    
+    # Close database connection
+    await database_manager.disconnect()
+    
+    # Close cache connection
     try:
         await cache_manager.disconnect()
-        await database_manager.disconnect()
-        logger.info("Cleanup completed")
-    except Exception as e:
-        logger.error("Error during cleanup", error=str(e))
+    except:
+        pass
 
 
-def create_application() -> FastAPI:
-    """Create and configure the FastAPI application."""
+def create_app() -> FastAPI:
+    """
+    Create FastAPI application instance.
+    """
     settings = get_settings()
     
     app = FastAPI(
-        title="AI Investment Advisory System",
-        description="Professional stock analysis using multiple AI agents",
-        version="2.0.0",
-        docs_url="/docs" if settings.is_development else None,
-        redoc_url="/redoc" if settings.is_development else None,
+        title=settings.app_name,
+        version="1.0.0",
+        description="AI-powered investment advisory system for analyzing US and Korean stocks",
         lifespan=lifespan,
+        debug=settings.debug,
+        docs_url="/api/docs" if settings.is_development else None,
+        redoc_url="/api/redoc" if settings.is_development else None,
     )
     
-    # Add middleware
-    app.add_middleware(
-        GZipMiddleware,
-        minimum_size=1000,
-    )
-    
+    # Add middlewares
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.allowed_origins,
@@ -111,58 +111,30 @@ def create_application() -> FastAPI:
         allow_headers=["*"],
     )
     
-    app.add_middleware(LoggingMiddleware)
+    app.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=["*"] if settings.is_development else ["api.yourdomain.com"],
+    )
     
-    if settings.rate_limiting_enabled:
-        app.add_middleware(RateLimitingMiddleware)
+    app.add_middleware(
+        SessionMiddleware,
+        secret_key=settings.secret_key,
+    )
     
     # Include routers
-    app.include_router(health.router, prefix="/health", tags=["Health"])
-    app.include_router(stocks.router, prefix="/api/v1/stocks", tags=["Stocks"])
-    app.include_router(analysis.router, prefix="/api/v1/analysis", tags=["Analysis"])
-    app.include_router(agents.router, prefix="/api/v1/agents", tags=["AI Agents"])
-    
-    # Global exception handler
-    @app.exception_handler(Exception)
-    async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-        logger.error(
-            "Unhandled exception occurred",
-            exc_info=exc,
-            path=request.url.path,
-            method=request.method,
-        )
-        
-        return JSONResponse(
-            status_code=500,
-            content={
-                "error": "Internal server error",
-                "message": "An unexpected error occurred",
-                "request_id": getattr(request.state, "request_id", None),
-            },
-        )
+    app.include_router(health.router, prefix="/api/health", tags=["health"])
+    app.include_router(auth.router, prefix="/api/auth", tags=["authentication"])
+    app.include_router(analysis.router, prefix="/api/analysis", tags=["analysis"])
+    app.include_router(stocks.router, prefix="/api/stocks", tags=["stocks"])
     
     return app
 
 
-# Create the application instance
-app = create_application()
-
-
-# Health check endpoint (for development)
-@app.get("/")
-async def root():
-    """Root endpoint for basic health check."""
-    return {
-        "message": "AI Investment Advisory System API",
-        "version": "2.0.0",
-        "status": "running",
-        "docs": "/docs"
-    }
+# Create application instance
+app = create_app()
 
 
 if __name__ == "__main__":
-    import uvicorn
-    
     settings = get_settings()
     
     uvicorn.run(

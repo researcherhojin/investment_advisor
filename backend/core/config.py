@@ -7,9 +7,15 @@ Supports environment variables and .env files.
 
 from functools import lru_cache
 from typing import List, Optional
+import sys
+from pathlib import Path
 
 from pydantic import Field, validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Import shared configuration
+sys.path.append(str(Path(__file__).parent.parent.parent))
+from shared_config import shared_config
 
 
 class Settings(BaseSettings):
@@ -23,7 +29,7 @@ class Settings(BaseSettings):
     )
     
     # Application
-    app_name: str = Field(default="AI Investment Advisory API", description="Application name")
+    app_name: str = Field(default=shared_config.app_name + " API", description="Application name")
     environment: str = Field(default="development", description="Environment (development, production)")
     debug: bool = Field(default=False, description="Debug mode")
     log_level: str = Field(default="INFO", description="Logging level")
@@ -43,10 +49,10 @@ class Settings(BaseSettings):
     redis_url: str = Field(default="redis://localhost:6379/0", description="Redis cache URL")
     cache_ttl: int = Field(default=900, description="Default cache TTL in seconds (15 minutes)")
     
-    # AI Services
-    openai_api_key: str = Field(..., description="OpenAI API key")
-    openai_model: str = Field(default="gpt-4o-mini-2024-07-18", description="Default OpenAI model")
-    openai_temperature: float = Field(default=0.1, description="OpenAI temperature")
+    # AI Services (from shared config)
+    openai_api_key: str = Field(default=shared_config.openai_api_key, description="OpenAI API key")
+    openai_model: str = Field(default=shared_config.openai_model, description="Default OpenAI model")
+    openai_temperature: float = Field(default=shared_config.openai_temperature, description="OpenAI temperature")
     
     # External APIs
     alpha_vantage_api_key: Optional[str] = Field(default=None, description="Alpha Vantage API key")
@@ -67,10 +73,11 @@ class Settings(BaseSettings):
     # Monitoring
     sentry_dsn: Optional[str] = Field(default=None, description="Sentry DSN for error tracking")
     
-    # Feature Flags
+    # Feature Flags (some from shared config)
     enable_websockets: bool = Field(default=True, description="Enable WebSocket endpoints")
     enable_background_analysis: bool = Field(default=True, description="Enable background analysis tasks")
-    enable_caching: bool = Field(default=True, description="Enable response caching")
+    enable_caching: bool = Field(default=shared_config.enable_caching, description="Enable response caching")
+    use_streamlit_agents: bool = Field(default=shared_config.use_streamlit_agents, description="Use existing Streamlit agents instead of OpenAI")
     
     @validator("environment")
     def validate_environment(cls, v: str) -> str:

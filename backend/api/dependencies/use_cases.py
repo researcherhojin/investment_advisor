@@ -1,89 +1,74 @@
 """
 Use Case Dependencies
 
-Dependency injection setup for use cases and application services.
+Dependency injection for use cases in API routes.
 """
 
-from functools import lru_cache
+from typing import AsyncGenerator
+
+from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import Depends
 
 from application.use_cases.analyze_stock import AnalyzeStockUseCase, GetAnalysisResultsUseCase
 from application.services.agent_service import AgentService
 from domain.services.analysis_orchestrator import AnalysisOrchestrator
-
-# TODO: These will be replaced with actual repository implementations
-# For now, we'll use mock repositories for development
-
-
-class MockStockRepository:
-    """Mock stock repository for development."""
-    
-    async def get_stock_by_ticker(self, ticker: str, market: str):
-        """Mock get stock by ticker."""
-        return None
-    
-    async def create_stock(self, stock):
-        """Mock create stock."""
-        return stock
-    
-    async def get_latest_price(self, stock_id):
-        """Mock get latest price."""
-        return None
+from infrastructure.repositories.stock_repository import StockRepository
+from infrastructure.repositories.analysis_repository import (
+    AnalysisSessionRepository,
+    AgentAnalysisRepository,
+    InvestmentDecisionRepository
+)
+from api.dependencies.database import get_db_session
+from core.config import get_settings
 
 
-class MockAnalysisSessionRepository:
-    """Mock analysis session repository for development."""
-    
-    async def create_session(self, session):
-        """Mock create session."""
-        return session
-    
-    async def get_session_by_id(self, session_id):
-        """Mock get session by ID."""
-        return None
-    
-    async def update_session(self, session):
-        """Mock update session."""
-        return session
+async def get_stock_repository(
+    db: AsyncSession = Depends(get_db_session)
+) -> StockRepository:
+    """Get stock repository instance."""
+    return StockRepository(db)
 
 
-class MockAgentAnalysisRepository:
-    """Mock agent analysis repository for development."""
-    
-    async def create_analysis(self, analysis):
-        """Mock create analysis."""
-        return analysis
-    
-    async def get_session_analyses(self, session_id):
-        """Mock get session analyses."""
-        return []
+async def get_analysis_session_repository(
+    db: AsyncSession = Depends(get_db_session)
+) -> AnalysisSessionRepository:
+    """Get analysis session repository instance."""
+    return AnalysisSessionRepository(db)
 
 
-class MockInvestmentDecisionRepository:
-    """Mock investment decision repository for development."""
-    
-    async def create_decision(self, decision):
-        """Mock create decision."""
-        return decision
-    
-    async def get_session_decision(self, session_id):
-        """Mock get session decision."""
-        return None
+async def get_agent_analysis_repository(
+    db: AsyncSession = Depends(get_db_session)
+) -> AgentAnalysisRepository:
+    """Get agent analysis repository instance."""
+    return AgentAnalysisRepository(db)
 
 
-# Repository instances (will be replaced with real implementations)
-stock_repository = MockStockRepository()
-session_repository = MockAnalysisSessionRepository()
-agent_analysis_repository = MockAgentAnalysisRepository()
-decision_repository = MockInvestmentDecisionRepository()
-
-# Service instances
-agent_service = AgentService()
-analysis_orchestrator = AnalysisOrchestrator()
+async def get_investment_decision_repository(
+    db: AsyncSession = Depends(get_db_session)
+) -> InvestmentDecisionRepository:
+    """Get investment decision repository instance."""
+    return InvestmentDecisionRepository(db)
 
 
-@lru_cache()  
-def get_analyze_stock_use_case() -> AnalyzeStockUseCase:
-    """Get analyze stock use case with dependencies."""
+async def get_agent_service() -> AgentService:
+    """Get agent service instance."""
+    return AgentService()
+
+
+async def get_analysis_orchestrator() -> AnalysisOrchestrator:
+    """Get analysis orchestrator instance."""
+    return AnalysisOrchestrator()
+
+
+async def get_analyze_stock_use_case(
+    stock_repository: StockRepository = Depends(get_stock_repository),
+    session_repository: AnalysisSessionRepository = Depends(get_analysis_session_repository),
+    agent_analysis_repository: AgentAnalysisRepository = Depends(get_agent_analysis_repository),
+    decision_repository: InvestmentDecisionRepository = Depends(get_investment_decision_repository),
+    agent_service: AgentService = Depends(get_agent_service),
+    analysis_orchestrator: AnalysisOrchestrator = Depends(get_analysis_orchestrator)
+) -> AnalyzeStockUseCase:
+    """Get analyze stock use case instance."""
     return AnalyzeStockUseCase(
         stock_repository=stock_repository,
         session_repository=session_repository,
@@ -94,9 +79,13 @@ def get_analyze_stock_use_case() -> AnalyzeStockUseCase:
     )
 
 
-@lru_cache()
-def get_analysis_results_use_case() -> GetAnalysisResultsUseCase:
-    """Get analysis results use case with dependencies."""
+async def get_analysis_results_use_case(
+    session_repository: AnalysisSessionRepository = Depends(get_analysis_session_repository),
+    agent_analysis_repository: AgentAnalysisRepository = Depends(get_agent_analysis_repository),
+    decision_repository: InvestmentDecisionRepository = Depends(get_investment_decision_repository),
+    stock_repository: StockRepository = Depends(get_stock_repository)
+) -> GetAnalysisResultsUseCase:
+    """Get analysis results use case instance."""
     return GetAnalysisResultsUseCase(
         session_repository=session_repository,
         agent_analysis_repository=agent_analysis_repository,

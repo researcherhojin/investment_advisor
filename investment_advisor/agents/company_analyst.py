@@ -11,11 +11,11 @@ from datetime import datetime
 import pandas as pd
 from pydantic import Field
 from langchain.prompts import PromptTemplate
-import yfinance as yf
 from pykrx import stock
 
 from .base import InvestmentAgent
 from ..data.simple_fetcher import SimpleStockFetcher
+from ..data.stable_fetcher import StableFetcher
 from ..core.exceptions import DataFetchError, AnalysisError
 
 logger = logging.getLogger(__name__)
@@ -27,6 +27,7 @@ class CompanyAnalystAgent(InvestmentAgent):
     name: str = Field(default="기업분석가")
     description: str = "기업의 재무, 경영 전략, 시장 포지션을 분석합니다."
     simple_fetcher: SimpleStockFetcher = Field(default_factory=SimpleStockFetcher)
+    stable_fetcher: StableFetcher = Field(default_factory=StableFetcher)
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
