@@ -32,6 +32,10 @@ class StableFetcher(StockDataFetcher):
         self._session = None
         self.max_retries = 2
         
+        # In-memory cache for session-level data
+        self._memory_cache = {}
+        self.cache_ttl = 300  # 5 minutes TTL
+        
         # 실제 시장 데이터 (2024년 기준)
         self.market_data = {
             'S&P500': {'current': 6238.01, 'symbol': '^GSPC'},
@@ -111,10 +115,31 @@ class StableFetcher(StockDataFetcher):
         
         self.last_request_time[key] = time.time()
     
-    # Cache removed - smart_cache decorator was cleaned up
+    def _get_from_memory_cache(self, cache_key: str):
+        """Get data from in-memory cache if valid."""
+        if cache_key in self._memory_cache:
+            cached_data, timestamp = self._memory_cache[cache_key]
+            if time.time() - timestamp < self.cache_ttl:
+                logger.debug(f"Using memory cache for {cache_key}")
+                return cached_data
+            else:
+                del self._memory_cache[cache_key]
+        return None
+    
+    def _store_in_memory_cache(self, cache_key: str, data):
+        """Store data in in-memory cache."""
+        self._memory_cache[cache_key] = (data, time.time())
+        logger.debug(f"Stored in memory cache: {cache_key}")
+    
     def fetch_quote(self, ticker: str) -> Dict[str, Any]:
         """주식 현재가 정보 조회."""
         ticker = ticker.upper().strip()
+        cache_key = f"quote_{ticker}"
+        
+        # Check memory cache first
+        cached = self._get_from_memory_cache(cache_key)
+        if cached:
+            return cached
         
         # 알려진 주식이면 실제 데이터 반환
         if ticker in self.stock_data:
@@ -124,7 +149,7 @@ class StableFetcher(StockDataFetcher):
             variation = random.uniform(0.98, 1.02)
             data['current_price'] = round(data['current_price'] * variation, 2)
             
-            return {
+            result = {
                 'ticker': ticker,
                 'longName': data['name'],
                 'currentPrice': data['current_price'],
@@ -140,9 +165,13 @@ class StableFetcher(StockDataFetcher):
                 'source': 'stable_data',
                 'timestamp': datetime.now().isoformat()
             }
+            self._store_in_memory_cache(cache_key, result)
+            return result
         
         # 안정적인 mock 데이터만 생성 (Yahoo Finance 완전 제거)
-        return self._create_realistic_mock_quote(ticker)
+        result = self._create_realistic_mock_quote(ticker)
+        self._store_in_memory_cache(cache_key, result)
+        return result
     
     def _create_realistic_mock_quote(self, ticker: str) -> Dict[str, Any]:
         """현실적인 mock 데이터 생성."""
@@ -222,9 +251,18 @@ class StableFetcher(StockDataFetcher):
         end_date: datetime
     ) -> pd.DataFrame:
         """주가 히스토리 조회 (Yahoo Finance 완전 제거)."""
+        cache_key = f"price_history_{ticker}_{start_date.date()}_{end_date.date()}"
+        
+        # Check memory cache first
+        cached = self._get_from_memory_cache(cache_key)
+        if cached is not None:
+            return cached
+        
         logger.info(f"Generating stable price history for {ticker}")
         # 안정적인 Mock 데이터만 생성
-        return self._create_realistic_price_history(ticker, start_date, end_date)
+        result = self._create_realistic_price_history(ticker, start_date, end_date)
+        self._store_in_memory_cache(cache_key, result)
+        return result
     
     def _create_realistic_price_history(
         self, 

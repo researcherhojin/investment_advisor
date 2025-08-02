@@ -21,9 +21,12 @@ def configure_logging(log_level: str = "INFO", suppress_external: bool = True):
     root_logger = logging.getLogger()
     root_logger.setLevel(getattr(logging, log_level.upper()))
     
-    # Remove existing handlers
+    # Remove existing handlers to prevent duplicates
     for handler in root_logger.handlers[:]:
         root_logger.removeHandler(handler)
+    
+    # Prevent propagation to avoid duplicate messages
+    root_logger.propagate = False
     
     # Create console handler with custom formatter
     console_handler = logging.StreamHandler(sys.stdout)
@@ -64,21 +67,39 @@ def configure_logging(log_level: str = "INFO", suppress_external: bool = True):
     
     # Suppress Streamlit warnings about missing ScriptRunContext
     logging.getLogger('streamlit.runtime.scriptrunner').setLevel(logging.ERROR)
+    logging.getLogger('streamlit.runtime.scriptrunner_utils.script_run_context').setLevel(logging.ERROR)
+    logging.getLogger('streamlit.runtime.state.session_state_proxy').setLevel(logging.ERROR)
     
     # Add custom filter to suppress ScriptRunContext warnings
     class StreamlitThreadFilter(logging.Filter):
         def filter(self, record):
-            # Filter out ScriptRunContext warnings
+            # Filter out ScriptRunContext and ThreadPoolExecutor warnings
             message = record.getMessage()
-            if "missing ScriptRunContext" in message:
-                return False
-            if "ThreadPoolExecutor" in message and "missing ScriptRunContext" in message:
+            if any(phrase in message for phrase in [
+                "missing ScriptRunContext",
+                "ThreadPoolExecutor",
+                "Session state does not function",
+                "script without `streamlit run`"
+            ]):
                 return False
             return True
     
     # Apply filter to all loggers
     for handler in root_logger.handlers:
         handler.addFilter(StreamlitThreadFilter())
+    
+    # Configure specific loggers to prevent duplicate messages
+    for logger_name in [
+        'investment_advisor.analysis.decision_system',
+        'investment_advisor.data.stable_fetcher',
+        'investment_advisor.data.simple_fetcher',
+        'investment_advisor.agents.company_analyst',
+        'investment_advisor.agents.technical_analyst'
+    ]:
+        logger = logging.getLogger(logger_name)
+        logger.propagate = False
+        if not logger.handlers:
+            logger.addHandler(console_handler)
     
     return root_logger
 
