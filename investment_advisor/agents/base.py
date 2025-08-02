@@ -71,17 +71,14 @@ class InvestmentAgent(BaseTool, ABC):
         Returns:
             DataFrame with stock price history
         """
-        from ..data import KoreaStockDataFetcher, USStockDataFetcher
+        from ..data import StableFetcher
         
         try:
             end_date = datetime.now()
             start_date = end_date - timedelta(days=365)
 
-            if market == "한국장":
-                fetcher = KoreaStockDataFetcher()
-            else:
-                fetcher = USStockDataFetcher()
-            
+            # Use StableFetcher for all markets
+            fetcher = StableFetcher()
             df = fetcher.fetch_price_history(company, start_date, end_date)
 
             if df.empty:

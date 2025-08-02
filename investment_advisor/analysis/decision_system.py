@@ -178,22 +178,15 @@ class InvestmentDecisionSystem:
             except Exception as stable_error:
                 logger.warning(f"StableFetcher failed for {ticker}: {stable_error}")
             
-            # Fallback to original fetchers
-            if market == "한국장":
-                fetcher = self.korea_fetcher
-            else:
-                fetcher = self.us_fetcher
+            # Fallback to simple fetcher
+            logger.info(f"Using fallback SimpleStockFetcher for {ticker}")
             
-            logger.info(f"Using fallback fetcher for {ticker}")
+            # Use SimpleStockFetcher as fallback
+            simple_data = self.simple_fetcher.create_price_history(ticker, 365)
+            stock_info = self.simple_fetcher.create_company_info(ticker)
+            financial_data = self.simple_fetcher.create_financial_data(ticker)
             
-            # Get company info
-            stock_info = fetcher.fetch_company_info(ticker)
-            
-            # Get price history
-            price_history = fetcher.fetch_price_history(ticker, start_date, end_date)
-            
-            # Get financial data
-            financial_data = fetcher.fetch_financial_data(ticker)
+            price_history = simple_data
             
             # Combine all data
             stock_data = {
@@ -218,33 +211,16 @@ class InvestmentDecisionSystem:
         results = {}
         
         try:
-            # Technical analysis
-            technical_results = self.technical_analyzer.analyze(price_history)
-            results["technical"] = technical_results
-            
-            # Store technical data for visualization
+            # Technical analysis is now handled by TechnicalAnalystAgent
+            # Store price data for visualization
             results["technical_viz_data"] = {
-                'indicators': technical_results,
                 'price_history': price_history,
                 'ticker': ticker
             }
             
-            # Get price targets
-            price_targets = self.technical_analyzer.get_price_targets(
-                price_history, technical_results
-            )
-            results["price_targets"] = price_targets
-            
-            # Fundamental analysis
-            fundamental_results = self.fundamental_analyzer.analyze(
-                stock_data, market
-            )
-            results["fundamental"] = fundamental_results
-            
-            # Economic indicators
-            country = "KOR" if market == "한국장" else "USA"
-            economic_indicators = self.economic_fetcher.fetch_economic_indicators(country)
-            results["economic"] = economic_indicators
+            # Analysis is now handled by agents - no separate analyzer needed
+            # Store basic data for agents to use
+            results["stock_info"] = stock_data
             
         except Exception as e:
             logger.error(f"Error in analyses: {str(e)}")
