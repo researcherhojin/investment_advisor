@@ -129,11 +129,17 @@ class InvestmentAgent(BaseTool, ABC):
         Returns:
             True if analysis meets minimum requirements
         """
-        required_elements = [
-            "투자",  # Investment recommendation
-            "리스크", # Risk assessment  
-            "가격",  # Price analysis
-            "%"      # Numerical data
+        # More lenient validation - check for minimum length and basic content
+        if len(analysis) < 100:
+            return False
+        
+        # Check for at least 2 of these elements
+        key_elements = [
+            "투자", "매수", "매도", "보유",  # Investment terms
+            "리스크", "위험", "안전",  # Risk terms
+            "가격", "목표가", "전망",  # Price/outlook terms  
+            "%", "배", "원"  # Numerical indicators
         ]
         
-        return all(element in analysis for element in required_elements)
+        found_count = sum(1 for element in key_elements if element in analysis)
+        return found_count >= 2

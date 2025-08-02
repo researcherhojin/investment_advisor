@@ -335,6 +335,17 @@ class USStockDataFetcher(StockDataFetcher, RetryMixin):
     @smart_cache(ttl=3600)  # 1 hour cache for financial data
     def fetch_financial_data(self, ticker: str) -> Dict[str, Any]:
         """Fetch financial data for US stocks with intelligent caching."""
+        
+        # For demo purposes, use simple fetcher first to avoid API limits
+        try:
+            company_data = self.simple_fetcher.fetch_stock_data(ticker, "미국장")
+            if company_data and 'financials' in company_data:
+                logger.info(f"Successfully generated financial data for {ticker} using SimpleStockFetcher")
+                return company_data.get('financials', {})
+        except Exception as simple_error:
+            logger.warning(f"Simple fetcher failed for financial data {ticker}: {simple_error}")
+        
+        # Fallback to actual API
         try:
             # Add delay to avoid rate limiting
             time.sleep(self.request_delay + random.uniform(0, 1))

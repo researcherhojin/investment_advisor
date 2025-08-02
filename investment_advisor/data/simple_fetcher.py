@@ -134,7 +134,7 @@ class SimpleStockFetcher:
         else:
             market_cap = random.randint(1, 50) * 1_000_000_000
         
-        return {
+        stock_data = {
             'ticker': ticker,
             'currentPrice': round(base_price, 2),
             '현재가': round(base_price, 2),
@@ -157,8 +157,26 @@ class SimpleStockFetcher:
             '국가': "US" if market == "미국장" else "KR",
             '직원수': random.randint(1000, 100000),
             'source': 'realistic_simulation',
-            'data_quality': 'simulated_but_realistic'
+            'data_quality': 'simulated_but_realistic',
+            'financials': {
+                'key_metrics': {
+                    'Revenue Growth': round(random.uniform(-0.1, 0.3), 3),
+                    'Earnings Growth': round(random.uniform(-0.1, 0.4), 3),
+                    'Gross Margins': round(random.uniform(0.2, 0.6), 3),
+                    'Operating Margins': round(random.uniform(0.05, 0.3), 3),
+                    'Profit Margins': round(random.uniform(0.02, 0.25), 3),
+                    'Return on Assets': round(random.uniform(0.05, 0.2), 3),
+                    'Return on Equity': round(random.uniform(0.08, 0.25), 3),
+                    'Debt to Equity': round(random.uniform(0.2, 2.0), 2),
+                    'Current Ratio': round(random.uniform(0.8, 3.0), 2),
+                    'Quick Ratio': round(random.uniform(0.5, 2.5), 2),
+                    'Free Cash Flow': random.randint(100_000_000, 10_000_000_000),
+                    'Operating Cash Flow': random.randint(200_000_000, 20_000_000_000),
+                }
+            }
         }
+        
+        return stock_data
     
     def create_price_history(self, ticker: str, days: int = 365) -> pd.DataFrame:
         """Create realistic price history."""
