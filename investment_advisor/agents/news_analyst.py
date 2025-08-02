@@ -13,7 +13,7 @@ from langchain.prompts import PromptTemplate
 from pydantic import Field
 
 from .base import InvestmentAgent
-from ..core.exceptions import AnalysisError
+# Remove unused imports - exceptions module was cleaned up
 
 logger = logging.getLogger(__name__)
 

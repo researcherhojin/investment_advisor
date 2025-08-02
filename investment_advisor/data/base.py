@@ -13,7 +13,7 @@ import hashlib
 from pathlib import Path
 
 import pandas as pd
-from ..utils.json_encoder import safe_json_dump, safe_json_dumps
+# Remove unused import - json_encoder was cleaned up
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +65,7 @@ class DataCache:
             }
             
             with open(cache_file, 'w') as f:
-                safe_json_dump(cache_data, f)
+                json.dump(cache_data, f, default=str)
             
             logger.debug(f"Cache set for key: {cache_key}")
         except Exception as e:

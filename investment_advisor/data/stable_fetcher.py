@@ -17,8 +17,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 
 from .base import StockDataFetcher
-from ..utils.advanced_cache import smart_cache
-from ..core.exceptions import DataFetchError
+# Remove unused imports - modules were cleaned up
 
 logger = logging.getLogger(__name__)
 
@@ -112,7 +111,7 @@ class StableFetcher(StockDataFetcher):
         
         self.last_request_time[key] = time.time()
     
-    @smart_cache(ttl=300)  # 5분 캐시
+    # Cache removed - smart_cache decorator was cleaned up
     def fetch_quote(self, ticker: str) -> Dict[str, Any]:
         """주식 현재가 정보 조회."""
         ticker = ticker.upper().strip()
@@ -179,7 +178,7 @@ class StableFetcher(StockDataFetcher):
             'timestamp': datetime.now().isoformat()
         }
     
-    @smart_cache(ttl=900)  # 15분 캐시
+    # Cache removed - smart_cache decorator was cleaned up
     def fetch_market_indices(self) -> Dict[str, Any]:
         """시장 지수 정보."""
         results = {}
@@ -321,7 +320,7 @@ class StableFetcher(StockDataFetcher):
             'source': 'stable_fetcher'
         }
     
-    @smart_cache(ttl=3600)  # 1시간 캐시
+    # Cache removed - smart_cache decorator was cleaned up
     def get_sector_performance(self) -> Dict[str, Any]:
         """섹터 성과 데이터 (Yahoo Finance 없이)."""
         # 현실적인 섹터 성과 데이터 생성

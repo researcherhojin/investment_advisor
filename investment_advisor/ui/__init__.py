@@ -4,15 +4,14 @@ UI Module
 Contains Streamlit UI components and layouts with professional design.
 """
 
-from .charts import ChartGenerator
-from .metrics import MetricsDisplay
-from .layouts import LayoutManager
-from .styles import ProfessionalTheme, ComponentStyles
+from .clean_modern_ui import CleanModernUI
+from .card_layout import CardLayoutManager
+from .dashboard import DashboardManager
+from .themes import ThemeManager
 
 __all__ = [
-    'ChartGenerator',
-    'MetricsDisplay', 
-    'LayoutManager',
-    'ProfessionalTheme',
-    'ComponentStyles',
+    'CleanModernUI',
+    'CardLayoutManager',
+    'DashboardManager', 
+    'ThemeManager',
 ]

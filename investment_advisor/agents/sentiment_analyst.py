@@ -13,8 +13,8 @@ from langchain.prompts import PromptTemplate
 from pydantic import Field
 
 from .base import InvestmentAgent
-from ..data import USStockDataFetcher, KoreaStockDataFetcher
-from ..core.exceptions import DataFetchError, AnalysisError
+from ..data import StableFetcher
+# Remove unused imports - modules were cleaned up
 
 logger = logging.getLogger(__name__)
 
@@ -26,8 +26,7 @@ class MarketSentimentAgent(InvestmentAgent):
     description: str = "시장 심리, 투자자 센티먼트, 거래량 패턴을 분석하는 전문가"
     
     # Data fetchers
-    us_fetcher: Any = Field(default_factory=lambda: USStockDataFetcher(use_cache=True))
-    korea_fetcher: Any = Field(default_factory=lambda: KoreaStockDataFetcher(use_cache=True))
+    stable_fetcher: StableFetcher = Field(default_factory=StableFetcher)
     
     # Prompt template for sentiment analysis
     prompt: PromptTemplate = PromptTemplate(
@@ -268,7 +267,7 @@ class MarketSentimentAgent(InvestmentAgent):
             
         return volatility_data
     
-    def _get_korea_investor_trends(self, ticker: str, fetcher: KoreaStockDataFetcher) -> Dict[str, Any]:
+    def _get_korea_investor_trends(self, ticker: str, fetcher: StableFetcher) -> Dict[str, Any]:
         """Get Korean market investor trends."""
         investor_data = {}
         
@@ -284,7 +283,7 @@ class MarketSentimentAgent(InvestmentAgent):
             
         return investor_data
     
-    def _get_us_market_breadth(self, fetcher: USStockDataFetcher) -> Dict[str, Any]:
+    def _get_us_market_breadth(self, fetcher: StableFetcher) -> Dict[str, Any]:
         """Get US market breadth indicators."""
         breadth_data = {}
         

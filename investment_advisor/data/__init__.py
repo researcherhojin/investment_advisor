@@ -4,14 +4,12 @@ Data Module
 Handles all data fetching and processing for stock analysis.
 """
 
-from .korea_stock import KoreaStockDataFetcher
-from .us_stock import USStockDataFetcher
-from .economic_data import EconomicDataFetcher
 from .base import StockDataFetcher
+from .stable_fetcher import StableFetcher
+from .simple_fetcher import SimpleStockFetcher
 
 __all__ = [
     'StockDataFetcher',
-    'KoreaStockDataFetcher',
-    'USStockDataFetcher',
-    'EconomicDataFetcher',
+    'StableFetcher', 
+    'SimpleStockFetcher',
 ]
