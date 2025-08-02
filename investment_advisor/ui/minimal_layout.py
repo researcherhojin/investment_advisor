@@ -366,7 +366,8 @@ class MinimalLayoutManager:
                 with tabs[i]:
                     if analysis and analysis.strip():
                         # Special handling for technical analysis
-                        if agent == "기술분석가" or agent == "기술적분석가" or "기술" in agent:
+                        # Agent name is "기술분석가" but tab name is "기술"
+                        if agent == "기술분석가":
                             self._render_technical_analysis_with_charts(analysis)
                         else:
                             # Clean up analysis text
@@ -425,123 +426,146 @@ class MinimalLayoutManager:
         clean_text = self._clean_text(analysis)
         st.markdown(clean_text)
         
-        # Try to get technical data from session state
-        if hasattr(st.session_state, 'last_technical_analysis'):
-            tech_data = st.session_state.last_technical_analysis
-            if tech_data and 'indicators' in tech_data and 'price_history' in tech_data:
-                st.markdown("### 📊 기술적 분석 차트")
+        # Always try to show charts
+        st.markdown("### 📊 기술적 분석 차트")
+        
+        # Get current analysis results
+        if hasattr(st.session_state, 'analysis_results'):
+            results = st.session_state.analysis_results
+            if 'price_history' in results and not results['price_history'].empty:
+                price_history = results['price_history']
+                ticker = results.get('ticker', '')
                 
-                # Display indicator summary
+                # Create basic technical chart
                 try:
-                    summary_fig = self.tech_chart_generator.create_indicator_summary(
-                        tech_data['indicators']
-                    )
-                    st.plotly_chart(summary_fig, use_container_width=True)
-                except Exception as e:
-                    logger.error(f"Error creating indicator summary: {e}")
-                
-                # Display main technical chart
-                try:
-                    main_fig = self.tech_chart_generator.create_price_chart_with_indicators(
-                        df=tech_data['price_history'],
-                        indicators=tech_data['indicators'],
-                        ticker=tech_data.get('ticker', '')
-                    )
-                    st.plotly_chart(main_fig, use_container_width=True)
-                except Exception as e:
-                    logger.error(f"Error creating technical chart: {e}")
-                
-                # Display key levels
-                try:
-                    self._display_technical_key_levels(tech_data['indicators'])
-                except Exception as e:
-                    logger.error(f"Error displaying key levels: {e}")
-        else:
-            # If no session data, create charts from current analysis data
-            if hasattr(st.session_state, 'analysis_results'):
-                results = st.session_state.analysis_results
-                if 'analysis_data' in results and results['analysis_data'] and 'technical_viz_data' in results['analysis_data']:
-                    tech_data = results['analysis_data']['technical_viz_data']
+                    import plotly.graph_objects as go
+                    from plotly.subplots import make_subplots
                     
-                    st.markdown("### 📊 기술적 분석 차트")
+                    # Create subplots for price and volume
+                    fig = make_subplots(
+                        rows=2, cols=1,
+                        shared_xaxes=True,
+                        vertical_spacing=0.05,
+                        row_heights=[0.7, 0.3],
+                        subplot_titles=(f'{ticker} 가격 차트', '거래량')
+                    )
+                    
+                    # Add candlestick chart
+                    fig.add_trace(
+                        go.Candlestick(
+                            x=price_history.index,
+                            open=price_history['Open'],
+                            high=price_history['High'],
+                            low=price_history['Low'],
+                            close=price_history['Close'],
+                            name='가격'
+                        ),
+                        row=1, col=1
+                    )
+                    
+                    # Add moving averages if we have enough data
+                    if len(price_history) >= 20:
+                        sma20 = price_history['Close'].rolling(window=20).mean()
+                        fig.add_trace(
+                            go.Scatter(
+                                x=price_history.index,
+                                y=sma20,
+                                name='SMA 20',
+                                line=dict(color='blue', width=2)
+                            ),
+                            row=1, col=1
+                        )
+                    
+                    if len(price_history) >= 50:
+                        sma50 = price_history['Close'].rolling(window=50).mean()
+                        fig.add_trace(
+                            go.Scatter(
+                                x=price_history.index,
+                                y=sma50,
+                                name='SMA 50',
+                                line=dict(color='orange', width=2)
+                            ),
+                            row=1, col=1
+                        )
+                    
+                    # Add volume bars
+                    colors = ['red' if price_history['Close'].iloc[i] < price_history['Open'].iloc[i] else 'green' 
+                              for i in range(len(price_history))]
+                    
+                    fig.add_trace(
+                        go.Bar(
+                            x=price_history.index,
+                            y=price_history['Volume'],
+                            name='거래량',
+                            marker_color=colors
+                        ),
+                        row=2, col=1
+                    )
+                    
+                    # Update layout
+                    fig.update_layout(
+                        height=600,
+                        showlegend=True,
+                        xaxis_rangeslider_visible=False,
+                        template='plotly_white'
+                    )
+                    
+                    fig.update_xaxes(title_text="날짜", row=2, col=1)
+                    fig.update_yaxes(title_text="가격", row=1, col=1)
+                    fig.update_yaxes(title_text="거래량", row=2, col=1)
+                    
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    # Add technical indicators
+                    st.markdown("### 📈 기술적 지표")
+                    
+                    # Calculate and display basic indicators
+                    col1, col2, col3, col4 = st.columns(4)
+                    
+                    current_price = price_history['Close'].iloc[-1]
+                    prev_price = price_history['Close'].iloc[-2] if len(price_history) > 1 else current_price
+                    price_change = ((current_price - prev_price) / prev_price) * 100
+                    
+                    # Calculate RSI
+                    def calculate_rsi(prices, period=14):
+                        delta = prices.diff()
+                        gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
+                        loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
+                        rs = gain / loss
+                        rsi = 100 - (100 / (1 + rs))
+                        return rsi.iloc[-1]
                     
                     try:
-                        # Display indicator summary
-                        summary_fig = self.tech_chart_generator.create_indicator_summary(
-                            tech_data['indicators']
-                        )
-                        st.plotly_chart(summary_fig, use_container_width=True)
-                        
-                        # Display main chart
-                        main_fig = self.tech_chart_generator.create_price_chart_with_indicators(
-                            df=tech_data['price_history'],
-                            indicators=tech_data['indicators'],
-                            ticker=tech_data.get('ticker', '')
-                        )
-                        st.plotly_chart(main_fig, use_container_width=True)
-                        
-                        # Display key levels
-                        self._display_technical_key_levels(tech_data['indicators'])
-                    except Exception as e:
-                        logger.error(f"Error creating charts from analysis results: {e}")
-                        st.info("기술적 차트를 생성하는 중 오류가 발생했습니다.")
-                else:
-                    # 최후의 수단: 현재 분석 결과에서 직접 데이터 가져오기
-                    if 'price_history' in results and 'analysis_data' in results:
-                        price_history = results['price_history']
-                        analysis_data = results['analysis_data']
-                        
-                        # technical indicators 가져오기
-                        if 'technical' in analysis_data:
-                            st.markdown("### 📊 기술적 분석 차트")
-                            try:
-                                # 간단한 가격 차트라도 표시
-                                if not price_history.empty:
-                                    fig = go.Figure()
-                                    fig.add_trace(go.Candlestick(
-                                        x=price_history.index,
-                                        open=price_history['Open'],
-                                        high=price_history['High'],
-                                        low=price_history['Low'],
-                                        close=price_history['Close'],
-                                        name='가격'
-                                    ))
-                                    
-                                    # 이동평균선 추가
-                                    if len(price_history) >= 20:
-                                        sma20 = price_history['Close'].rolling(window=20).mean()
-                                        fig.add_trace(go.Scatter(
-                                            x=price_history.index,
-                                            y=sma20,
-                                            name='SMA 20',
-                                            line=dict(color='blue', width=2)
-                                        ))
-                                    
-                                    fig.update_layout(
-                                        title=f"{results.get('ticker', '')} 기술적 분석 차트",
-                                        xaxis_title="날짜",
-                                        yaxis_title="가격",
-                                        height=600
-                                    )
-                                    
-                                    st.plotly_chart(fig, use_container_width=True)
-                                    
-                                    # 기술적 지표 표시
-                                    if 'technical' in analysis_data and isinstance(analysis_data['technical'], dict):
-                                        tech_indicators = analysis_data['technical']
-                                        col1, col2, col3 = st.columns(3)
-                                        
-                                        with col1:
-                                            st.metric("RSI", f"{tech_indicators.get('rsi', 50):.1f}")
-                                        with col2:
-                                            st.metric("변동성", f"{tech_indicators.get('volatility', 0.2)*100:.1f}%")
-                                        with col3:
-                                            current_price = price_history['Close'].iloc[-1] if not price_history.empty else 100
-                                            st.metric("현재가", f"{current_price:.2f}")
-                                            
-                            except Exception as e:
-                                logger.error(f"Error creating simple chart: {e}")
-                                st.error(f"차트 생성 오류: {str(e)}")
+                        rsi_value = calculate_rsi(price_history['Close'])
+                    except:
+                        rsi_value = 50
+                    
+                    with col1:
+                        st.metric("현재가", f"{current_price:.2f}", f"{price_change:.2f}%")
+                    
+                    with col2:
+                        st.metric("RSI(14)", f"{rsi_value:.1f}", 
+                                 "과매수" if rsi_value > 70 else "과매도" if rsi_value < 30 else "중립")
+                    
+                    with col3:
+                        high_52w = price_history['High'].rolling(window=252, min_periods=1).max().iloc[-1]
+                        low_52w = price_history['Low'].rolling(window=252, min_periods=1).min().iloc[-1]
+                        st.metric("52주 최고/최저", f"{high_52w:.2f} / {low_52w:.2f}")
+                    
+                    with col4:
+                        volume_avg = price_history['Volume'].rolling(window=20, min_periods=1).mean().iloc[-1]
+                        current_volume = price_history['Volume'].iloc[-1]
+                        volume_ratio = (current_volume / volume_avg) * 100 if volume_avg > 0 else 100
+                        st.metric("거래량 비율", f"{volume_ratio:.0f}%", 
+                                 "평균 이상" if volume_ratio > 100 else "평균 이하")
+                    
+                except Exception as e:
+                    st.error(f"차트 생성 중 오류: {str(e)}")
+                    logger.error(f"Error creating technical chart: {e}")
+            else:
+                st.info("가격 데이터가 없어 차트를 표시할 수 없습니다.")
+        
+        return
     
     def _display_technical_key_levels(self, indicators: Dict[str, Any]):
         """Display key technical levels and signals."""
