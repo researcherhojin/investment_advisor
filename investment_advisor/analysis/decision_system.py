@@ -197,6 +197,13 @@ class InvestmentDecisionSystem:
             technical_results = self.technical_analyzer.analyze(price_history)
             results["technical"] = technical_results
             
+            # Store technical data for visualization
+            results["technical_viz_data"] = {
+                'indicators': technical_results,
+                'price_history': price_history,
+                'ticker': ticker
+            }
+            
             # Get price targets
             price_targets = self.technical_analyzer.get_price_targets(
                 price_history, technical_results

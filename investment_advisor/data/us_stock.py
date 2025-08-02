@@ -373,7 +373,6 @@ class USStockDataFetcher(StockDataFetcher, RetryMixin):
             # Key metrics - Use mock data to avoid 429
             try:
                 # Generate realistic mock metrics
-                import random
                 key_metrics = {
                     "Revenue Growth": round(random.uniform(-0.1, 0.3), 3),
                     "Earnings Growth": round(random.uniform(-0.1, 0.4), 3),

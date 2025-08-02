@@ -10,8 +10,11 @@ import pandas as pd
 from typing import Dict, Any, Optional
 from datetime import datetime
 import plotly.graph_objects as go
+import logging
 
 from ..visualization.technical_charts import TechnicalChartGenerator
+
+logger = logging.getLogger(__name__)
 
 
 class MinimalLayoutManager:
@@ -420,40 +423,68 @@ class MinimalLayoutManager:
         """Render technical analysis with interactive charts."""
         # First display the text analysis
         clean_text = self._clean_text(analysis)
+        st.markdown(clean_text)
         
-        # Create columns for better layout
-        text_col, chart_col = st.columns([1, 1])
-        
-        with text_col:
-            st.markdown(clean_text)
-        
-        with chart_col:
-            # Try to get technical data from session state
-            if hasattr(st.session_state, 'last_technical_analysis'):
-                tech_data = st.session_state.last_technical_analysis
-                if 'indicators' in tech_data and 'price_history' in tech_data:
-                    # Create indicator summary
+        # Try to get technical data from session state
+        if hasattr(st.session_state, 'last_technical_analysis'):
+            tech_data = st.session_state.last_technical_analysis
+            if tech_data and 'indicators' in tech_data and 'price_history' in tech_data:
+                st.markdown("### 📊 기술적 분석 차트")
+                
+                # Display indicator summary
+                try:
                     summary_fig = self.tech_chart_generator.create_indicator_summary(
                         tech_data['indicators']
                     )
                     st.plotly_chart(summary_fig, use_container_width=True)
-        
-        # Full-width technical chart below
-        if hasattr(st.session_state, 'last_technical_analysis'):
-            tech_data = st.session_state.last_technical_analysis
-            if 'indicators' in tech_data and 'price_history' in tech_data:
-                st.markdown("### 📊 기술적 분석 차트")
+                except Exception as e:
+                    logger.error(f"Error creating indicator summary: {e}")
                 
-                # Create main technical chart
-                main_fig = self.tech_chart_generator.create_price_chart_with_indicators(
-                    df=tech_data['price_history'],
-                    indicators=tech_data['indicators'],
-                    ticker=tech_data.get('ticker', '')
-                )
-                st.plotly_chart(main_fig, use_container_width=True)
+                # Display main technical chart
+                try:
+                    main_fig = self.tech_chart_generator.create_price_chart_with_indicators(
+                        df=tech_data['price_history'],
+                        indicators=tech_data['indicators'],
+                        ticker=tech_data.get('ticker', '')
+                    )
+                    st.plotly_chart(main_fig, use_container_width=True)
+                except Exception as e:
+                    logger.error(f"Error creating technical chart: {e}")
                 
                 # Display key levels
-                self._display_technical_key_levels(tech_data['indicators'])
+                try:
+                    self._display_technical_key_levels(tech_data['indicators'])
+                except Exception as e:
+                    logger.error(f"Error displaying key levels: {e}")
+        else:
+            # If no session data, create charts from current analysis data
+            if hasattr(st.session_state, 'analysis_results'):
+                results = st.session_state.analysis_results
+                if 'analysis_data' in results and 'technical_viz_data' in results['analysis_data']:
+                    tech_data = results['analysis_data']['technical_viz_data']
+                    
+                    st.markdown("### 📊 기술적 분석 차트")
+                    
+                    try:
+                        # Display indicator summary
+                        summary_fig = self.tech_chart_generator.create_indicator_summary(
+                            tech_data['indicators']
+                        )
+                        st.plotly_chart(summary_fig, use_container_width=True)
+                        
+                        # Display main chart
+                        main_fig = self.tech_chart_generator.create_price_chart_with_indicators(
+                            df=tech_data['price_history'],
+                            indicators=tech_data['indicators'],
+                            ticker=tech_data.get('ticker', '')
+                        )
+                        st.plotly_chart(main_fig, use_container_width=True)
+                        
+                        # Display key levels
+                        self._display_technical_key_levels(tech_data['indicators'])
+                    except Exception as e:
+                        logger.error(f"Error creating charts from analysis results: {e}")
+                        st.info("기술적 차트를 생성하는 중 오류가 발생했습니다.")
     
     def _display_technical_key_levels(self, indicators: Dict[str, Any]):
         """Display key technical levels and signals."""

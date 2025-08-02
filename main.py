@@ -165,6 +165,10 @@ def run_analysis(
             'timestamp': datetime.now()
         }
         
+        # Store technical visualization data if available
+        if analysis_data and 'technical_viz_data' in analysis_data:
+            st.session_state.last_technical_analysis = analysis_data['technical_viz_data']
+        
         # Success message
         layout_manager.display_success("분석이 완료되었습니다!")
         

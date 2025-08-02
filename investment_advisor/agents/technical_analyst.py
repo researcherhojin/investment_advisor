@@ -86,13 +86,15 @@ class TechnicalAnalystAgent(InvestmentAgent):
             price_history = self.get_stock_data(company, market)
             
             # Store in session state for visualization
-            import streamlit as st
-            if 'streamlit' in str(type(st)):
+            try:
+                import streamlit as st
                 st.session_state.last_technical_analysis = {
                     'indicators': technical_data,
                     'price_history': price_history,
                     'ticker': company
                 }
+            except Exception as e:
+                logger.debug(f"Could not store technical data in session state: {e}")
             
             analysis = self.llm.invoke(
                 self.prompt.format(
