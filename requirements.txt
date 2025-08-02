@@ -17,7 +17,7 @@ dataclasses-json==0.6.7
 DateTime==5.5
 Deprecated==1.2.14
 distro==1.9.0
-duckduckgo_search==6.2.11
+duckduckgo_search==6.2.13
 finance-datareader==0.9.94
 fonttools==4.53.1
 frozendict==2.4.4
@@ -63,7 +63,7 @@ peewee==3.17.6
 pillow==10.4.0
 platformdirs==4.2.2
 plotly==6.2.0
-primp==0.6.1
+primp==0.6.3
 protobuf==5.28.0
 psutil==6.0.0
 pyarrow==17.0.0
