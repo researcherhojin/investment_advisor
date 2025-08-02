@@ -11,9 +11,14 @@ from typing import Dict, Any, Optional
 from datetime import datetime
 import plotly.graph_objects as go
 
+from ..visualization.technical_charts import TechnicalChartGenerator
+
 
 class MinimalLayoutManager:
     """Ultra minimal and clean layout manager."""
+    
+    def __init__(self):
+        self.tech_chart_generator = TechnicalChartGenerator()
     
     def setup_page(self):
         """Setup minimal page styling."""
@@ -357,9 +362,13 @@ class MinimalLayoutManager:
             for i, (agent, analysis) in enumerate(filtered_results.items()):
                 with tabs[i]:
                     if analysis and analysis.strip():
-                        # Clean up analysis text
-                        clean_text = self._clean_text(analysis)
-                        st.markdown(clean_text)
+                        # Special handling for technical analysis
+                        if agent == "기술분석가":
+                            self._render_technical_analysis_with_charts(analysis)
+                        else:
+                            # Clean up analysis text
+                            clean_text = self._clean_text(analysis)
+                            st.markdown(clean_text)
                     else:
                         st.info("분석 준비중...")
     
@@ -406,3 +415,69 @@ class MinimalLayoutManager:
     def display_success(self, success_message: str):
         """Clean success display."""
         st.success(f"✅ {success_message}")
+    
+    def _render_technical_analysis_with_charts(self, analysis: str):
+        """Render technical analysis with interactive charts."""
+        # First display the text analysis
+        clean_text = self._clean_text(analysis)
+        
+        # Create columns for better layout
+        text_col, chart_col = st.columns([1, 1])
+        
+        with text_col:
+            st.markdown(clean_text)
+        
+        with chart_col:
+            # Try to get technical data from session state
+            if hasattr(st.session_state, 'last_technical_analysis'):
+                tech_data = st.session_state.last_technical_analysis
+                if 'indicators' in tech_data and 'price_history' in tech_data:
+                    # Create indicator summary
+                    summary_fig = self.tech_chart_generator.create_indicator_summary(
+                        tech_data['indicators']
+                    )
+                    st.plotly_chart(summary_fig, use_container_width=True)
+        
+        # Full-width technical chart below
+        if hasattr(st.session_state, 'last_technical_analysis'):
+            tech_data = st.session_state.last_technical_analysis
+            if 'indicators' in tech_data and 'price_history' in tech_data:
+                st.markdown("### 📊 기술적 분석 차트")
+                
+                # Create main technical chart
+                main_fig = self.tech_chart_generator.create_price_chart_with_indicators(
+                    df=tech_data['price_history'],
+                    indicators=tech_data['indicators'],
+                    ticker=tech_data.get('ticker', '')
+                )
+                st.plotly_chart(main_fig, use_container_width=True)
+                
+                # Display key levels
+                self._display_technical_key_levels(tech_data['indicators'])
+    
+    def _display_technical_key_levels(self, indicators: Dict[str, Any]):
+        """Display key technical levels and signals."""
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.metric(
+                "현재 추세",
+                "상승" if indicators.get('macd_diff', 0) > 0 else "하락",
+                f"{indicators.get('macd_diff', 0):.2f}"
+            )
+            
+        with col2:
+            st.metric(
+                "지지/저항선",
+                f"S: {indicators.get('support_level', 0):.2f}",
+                f"R: {indicators.get('resistance_level', 0):.2f}"
+            )
+            
+        with col3:
+            rsi = indicators.get('rsi', 50)
+            rsi_signal = "과매수" if rsi > 70 else "과매도" if rsi < 30 else "중립"
+            st.metric(
+                "RSI 신호",
+                rsi_signal,
+                f"{rsi:.1f}"
+            )

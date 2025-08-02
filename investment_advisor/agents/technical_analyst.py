@@ -82,6 +82,18 @@ class TechnicalAnalystAgent(InvestmentAgent):
             technical_data = self.get_technical_indicators(company, market)
             technical_data = self._convert_numpy_types(technical_data)
             
+            # Store visualization data for later use
+            price_history = self.get_stock_data(company, market)
+            
+            # Store in session state for visualization
+            import streamlit as st
+            if 'streamlit' in str(type(st)):
+                st.session_state.last_technical_analysis = {
+                    'indicators': technical_data,
+                    'price_history': price_history,
+                    'ticker': company
+                }
+            
             analysis = self.llm.invoke(
                 self.prompt.format(
                     company=company,
