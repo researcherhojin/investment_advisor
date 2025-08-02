@@ -16,6 +16,7 @@ from langchain.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
 
 from ..core.exceptions import DataFetchError, AnalysisError
+from ..core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +46,12 @@ class InvestmentAgent(BaseTool, ABC):
     def __init__(self, **data):
         super().__init__(**data)
         if "llm" not in data:
-            self.llm = ChatOpenAI(model_name="gpt-4o-mini-2024-07-18", temperature=0.1)
+            settings = get_settings()
+            self.llm = ChatOpenAI(
+                model_name=settings.default_model,
+                temperature=settings.temperature,
+                max_tokens=settings.max_tokens
+            )
 
     @abstractmethod
     def _run(self, *args, **kwargs) -> str:
