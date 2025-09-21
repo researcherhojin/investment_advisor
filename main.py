@@ -184,7 +184,7 @@ def main():
                     if isinstance(agent_text, str) and agent_text:
                         # Remove header and footer if present
                         content = agent_text
-                        
+
                         # Remove the header part (## 에이전트이름의 분석...)
                         if "## " in content and "의 분석" in content:
                             header_end = content.find("\n", content.find("의 분석"))
@@ -193,11 +193,11 @@ def main():
                                 content_start = content.find("\n\n", header_end)
                                 if content_start != -1:
                                     content = content[content_start:].strip()
-                        
+
                         # Remove the footer part (---\n*에이전트이름...)
                         if "\n---\n" in content:
                             content = content[:content.rfind("\n---\n")].strip()
-                        
+
                         # Extract confidence from original text
                         confidence = '보통'
                         if '높음 신뢰도' in agent_text:

@@ -304,10 +304,10 @@ class CompanyAnalystAgent(InvestmentAgent):
     def _extract_financial_from_stock_data(self, stock_data: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """
         Extract financial data from provided stock_data.
-        
+
         Args:
             stock_data: Stock data from Yahoo Finance or other sources
-            
+
         Returns:
             Tuple of (financials, key_stats)
         """
@@ -321,7 +321,7 @@ class CompanyAnalystAgent(InvestmentAgent):
             "거래량": stock_data.get("volume", stock_data.get("regularMarketVolume", "N/A")),
             "시가총액": stock_data.get("시가총액", stock_data.get("marketCap", "N/A")),
         }
-        
+
         # Extract key statistics - Use actual values from Yahoo Finance
         key_stats = {
             "PER": stock_data.get("PER", stock_data.get("trailingPE", stock_data.get("forwardPE", "N/A"))),
@@ -333,7 +333,7 @@ class CompanyAnalystAgent(InvestmentAgent):
             "섹터": stock_data.get("섹터", stock_data.get("sector", "N/A")),
             "산업": stock_data.get("산업", stock_data.get("industry", "N/A")),
         }
-        
+
         logger.info(f"Extracted financial data - PER: {key_stats.get('PER')}, PBR: {key_stats.get('PBR')}")
-        
+
         return financials, key_stats

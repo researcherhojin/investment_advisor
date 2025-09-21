@@ -187,7 +187,7 @@ def render_quick_stats(stock_data: Dict[str, Any]):
                 price_str = f"₩{price:,.0f}" if price >= 1000 else f"₩{price:,.2f}"
             else:
                 price_str = f"${price:,.2f}"
-            
+
             st.metric(
                 "현재가",
                 price_str,

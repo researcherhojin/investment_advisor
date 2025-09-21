@@ -27,10 +27,10 @@ class IndustryExpertAgent(InvestmentAgent):
     prompt: PromptTemplate = PromptTemplate(
         input_variables=["industry", "market"],
         template="""
-        당신은 15년 경력의 {industry} 산업 전문가입니다. 
-        
+        당신은 15년 경력의 {industry} 산업 전문가입니다.
+
         중요: Tesla(TSLA)를 분석하는 경우, 전기차(EV) 산업에 집중하세요. 일반적인 기술/소프트웨어가 아닌 전기차, 배터리, 자율주행, 에너지 저장 시스템 관련 분석을 제공하세요.
-        
+
         {market} 시장의 {industry} 섹터에 대한 심층 분석을 제공해주세요:
 
         **1. 산업 사이클 및 현재 위치**

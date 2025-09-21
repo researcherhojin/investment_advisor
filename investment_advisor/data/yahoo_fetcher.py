@@ -31,6 +31,24 @@ class YahooFetcher:
         self._cache = {}
         self._cache_timestamps = {}
 
+    def _format_ticker(self, ticker: str) -> str:
+        """
+        Format ticker symbol for Yahoo Finance.
+        Korean stocks need .KS (KOSPI) or .KQ (KOSDAQ) suffix.
+
+        Args:
+            ticker: Original ticker symbol
+
+        Returns:
+            Formatted ticker symbol
+        """
+        # Check if it's a Korean stock (6-digit number)
+        if ticker.isdigit() and len(ticker) == 6:
+            # Add .KS suffix for Korean stocks (KOSPI)
+            # Note: Some stocks might be on KOSDAQ (.KQ), but we'll try .KS first
+            return f"{ticker}.KS"
+        return ticker
+
     def _is_cache_valid(self, key: str) -> bool:
         """Check if cached data is still valid."""
         if key not in self._cache_timestamps:
@@ -57,8 +75,10 @@ class YahooFetcher:
             return self._cache[cache_key]
 
         try:
+            # Format ticker for Yahoo Finance (add .KS for Korean stocks)
+            formatted_ticker = self._format_ticker(ticker)
             # Fetch real data from Yahoo Finance
-            stock = yf.Ticker(ticker)
+            stock = yf.Ticker(formatted_ticker)
             info = stock.info
 
             # Get current price and other metrics
@@ -125,8 +145,10 @@ class YahooFetcher:
             return self._cache[cache_key]
 
         try:
+            # Format ticker for Yahoo Finance (add .KS for Korean stocks)
+            formatted_ticker = self._format_ticker(ticker)
             # Fetch real historical data
-            stock = yf.Ticker(ticker)
+            stock = yf.Ticker(formatted_ticker)
             hist = stock.history(start=start_date, end=end_date, interval=interval)
 
             if hist.empty:
@@ -169,7 +191,9 @@ class YahooFetcher:
             return self._cache[cache_key]
 
         try:
-            stock = yf.Ticker(ticker)
+            # Format ticker for Yahoo Finance (add .KS for Korean stocks)
+            formatted_ticker = self._format_ticker(ticker)
+            stock = yf.Ticker(formatted_ticker)
             info = stock.info
 
             company_info = {
@@ -213,7 +237,9 @@ class YahooFetcher:
             return self._cache[cache_key]
 
         try:
-            stock = yf.Ticker(ticker)
+            # Format ticker for Yahoo Finance (add .KS for Korean stocks)
+            formatted_ticker = self._format_ticker(ticker)
+            stock = yf.Ticker(formatted_ticker)
             info = stock.info
 
             # Try to get quarterly financials
