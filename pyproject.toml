@@ -1,0 +1,107 @@
+[project]
+name = "ai-investment-advisor"
+version = "2.0.0"
+description = "AI-powered investment advisory system for US and Korean stocks"
+authors = [{name = "Your Name", email = "your.email@example.com"}]
+readme = "README.md"
+requires-python = ">=3.12"
+license = {text = "Apache-2.0"}
+
+dependencies = [
+    # Core dependencies
+    "streamlit>=1.47.0",
+    "pandas>=2.1.4",
+    "numpy>=1.26.2",
+    "plotly>=6.2.0",
+
+    # AI/ML
+    "openai>=1.40.0",
+    "langchain>=0.3.0",
+    "langchain-openai>=0.2.0",
+    "langchain-community>=0.3.0",
+    "tiktoken>=0.7.0",
+
+    # Data sources
+    "yfinance>=0.2.43",
+    "finance-datareader>=0.9.50",
+    "pykrx>=1.0.48",
+    "duckduckgo-search>=6.2.0",
+
+    # Technical analysis
+    "ta>=0.11.0",
+    "mplfinance>=0.12.10b0",
+
+    # Web scraping
+    "beautifulsoup4>=4.12.3",
+    "lxml>=5.3.0",
+    "httpx>=0.27.0",
+
+    # Utils
+    "python-dotenv>=1.0.1",
+    "pytz>=2024.1",
+    "psutil>=6.0.0",
+    "deprecated>=1.2.14",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.3",
+    "pytest-cov>=4.1.0",
+    "pytest-asyncio>=0.21.1",
+    "ruff>=0.1.9",
+    "mypy>=1.7.1",
+    "black>=23.12.1",
+    "pre-commit>=3.6.0",
+]
+
+backend = [
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.25.0",
+    "sqlalchemy>=2.0.23",
+    "alembic>=1.13.1",
+    "redis>=5.0.1",
+    "asyncpg>=0.29.0",
+    "python-jose[cryptography]>=3.3.0",
+    "passlib[bcrypt]>=1.7.4",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["investment_advisor"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+]
+ignore = [
+    "E501",  # line too long
+    "B008",  # do not perform function calls in argument defaults
+]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "investment_advisor/tests"]
+python_files = ["test_*.py", "*_test.py"]
+addopts = "-v --tb=short"
+
+[tool.black]
+line-length = 100
+target-version = ['py312']
+
+[tool.uv]
+index-url = "https://pypi.org/simple"

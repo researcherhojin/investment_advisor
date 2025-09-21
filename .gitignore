@@ -24,6 +24,8 @@ wheels/
 venv/
 ENV/
 env/
+.venv/
+.uv/
 
 # IDE
 .idea/
@@ -59,6 +61,9 @@ Thumbs.db
 .coverage
 .pytest_cache/
 .tox/
+htmlcov/
+.mypy_cache/
+.ruff_cache/
 
 # Documentation
 docs/_build/
@@ -67,6 +72,8 @@ docs/_build/
 *.bak
 *.backup
 *_backup.py
+backups/
+backup_unused_files/
 
 # Miniforge/Conda environments
 miniforge/

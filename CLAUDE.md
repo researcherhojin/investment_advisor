@@ -4,235 +4,225 @@ This file provides guidance to Claude Code (claude.ai/code) when working with th
 
 ## Project Overview
 
-AI-powered investment advisory system for analyzing US and Korean stocks using multiple specialized AI agents. Currently transitioning from Streamlit to React + FastAPI architecture for better scalability and professional UI/UX.
+AI Investment Advisory System v0.2 (Beta) - A comprehensive stock analysis platform using 6 specialized AI agents (Company Analyst, Technical Analyst, Risk Manager, Industry Expert, Macroeconomist, Mediator) to analyze US and Korean stocks with real-time Yahoo Finance data.
 
-## Development Environment
+## Quick Start Commands
 
-### Current Stack (Legacy)
-- **Backend**: Python 3.12, Streamlit
-- **AI**: OpenAI GPT-4, LangChain agents
-- **Data**: Yahoo Finance, Alpha Vantage API
-- **UI**: Streamlit with professional CSS themes
-
-### Target Stack (Migration)
-- **Frontend**: React 18 + TypeScript + Vite
-- **Backend**: FastAPI + Python 3.12
-- **Database**: PostgreSQL + Redis
-- **Deployment**: Docker containers
-- **PWA**: Service workers, offline capability
-
-## Common Development Commands
-
-### Current System
 ```bash
 # Setup environment
-conda create -n stock python=3.12
-conda activate stock
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
 # Run application
-streamlit run main.py
+bash scripts/run.sh  # Or: streamlit run main.py
 
-# Testing and quality
-python -m pytest investment_advisor/tests/
-ruff check .
-mypy investment_advisor/
+# Run with debug mode
+export DEBUG_MODE=true && export LOG_LEVEL=DEBUG && streamlit run main.py
+
+# Clear cache (if data issues)
+rm -rf .cache/
+```
+
+## Project Structure
+
+```
+ai-investment-advisor/
+├── investment_advisor/      # Core application modules
+│   ├── agents/             # 6 AI analysis agents
+│   ├── analysis/           # Decision system and orchestration
+│   ├── data/              # Data fetchers (Yahoo, Stable, Simple)
+│   ├── ui/                # Streamlit UI components
+│   └── utils/             # Configuration and utilities
+├── scripts/               # Shell scripts for automation
+│   ├── quick_start.sh    # Quick setup script
+│   ├── run.sh            # Application runner
+│   └── setup_uv.sh       # UV package manager setup
+├── tests/                 # Test files
+│   ├── test_real_data.py # Real data validation
+│   ├── test_fixes.py     # Bug fix verification
+│   └── test_final.py     # System integration tests
+├── main.py               # Application entry point
+├── requirements.txt      # Python dependencies
+└── .env.example         # Environment template
+```
+
+## Critical Debugging Lessons
+
+### 1. Agent Output Display Fix
+**Problem**: AI agents returning content but UI showing placeholders  
+**Solution**: In `main.py`, properly extract agent content:
+```python
+def format_agent_result(agent_text):
+    # Remove header (## 에이전트명의 분석...)
+    # Remove footer (---\n*agent_name...)
+    # Extract actual content between headers and footers
+```
+
+### 2. Import Path Consistency
+**Problem**: ModuleNotFoundError after file reorganization  
+**Solution**: Always use relative imports from `utils`, not `core`:
+```python
+from ..utils import get_config  # Correct
+# from ..core import get_config  # Wrong (core was removed)
+```
+
+### 3. Model Configuration
+**Problem**: Invalid model names causing API errors  
+**Solution**: Use valid OpenAI models:
+```python
+DEFAULT_MODEL=gpt-4o-mini  # Valid, cost-effective
+# DEFAULT_MODEL=gpt-5-nano  # Invalid, doesn't exist
+```
+
+### 4. Financial Data Accuracy
+**Problem**: Incorrect PER values (showing 39.4 instead of 256.67 for TSLA)  
+**Solution**: Pass actual stock_data to CompanyAnalystAgent:
+```python
+# In decision_system.py
+agent_results["기업분석가"] = company_agent._run(
+    company, market, stock_data=stock_data  # Pass actual data
+)
+```
+
+## Development Commands
+
+```bash
+# Code quality
+ruff check .                    # Lint code
+ruff check . --fix              # Auto-fix linting issues
+black investment_advisor/       # Format code
+mypy investment_advisor/        # Type checking
+
+# Testing
+python tests/test_real_data.py  # Test Yahoo Finance integration
+python tests/test_fixes.py       # Verify bug fixes
+python tests/test_final.py       # System integration test
 
 # Cache management
+rm -rf .cache/                  # Clear all cache
+find .cache -mtime +1 -delete   # Clear old cache
+```
+
+## Data Flow Architecture
+
+### Three-Tier Data Fetching System
+1. **Primary**: `YahooFetcher` → Real-time market data
+2. **Fallback**: `StableFetcher` → Backup data source
+3. **Emergency**: `SimpleFetcher` → Hardcoded values
+
+### Parallel Agent Execution
+```python
+# Agents run concurrently via ThreadPoolExecutor
+with ThreadPoolExecutor(max_workers=4) as executor:
+    futures = {
+        executor.submit(agent._run, company, market): name
+        for name, agent in agents.items()
+    }
+```
+
+## Common Issues & Solutions
+
+### Yahoo Finance Rate Limiting
+```bash
+# Enable caching
+USE_CACHE=true
+
+# Add delays between requests
+import time
+time.sleep(1)  # Between API calls
+```
+
+### Agent Output Truncation
+- Check `format_agent_result()` in main.py
+- Verify agent returns complete text
+- Remove placeholder text patterns
+
+### Memory/Performance Issues
+```bash
+# Clear cache
 rm -rf .cache/
 
-# Quick debugging
-export DEBUG_MODE=true
-export LOG_LEVEL=DEBUG
+# Limit parallel workers
+max_workers=2  # Reduce from 4 if needed
+
+# Check memory usage
+ps aux | grep python
 ```
 
-### Docker Development (In Progress)
+## Environment Variables (.env)
+
 ```bash
-# Build development environment
-docker-compose -f docker-compose.dev.yml up --build
+# Required
+OPENAI_API_KEY=sk-...          # OpenAI API key
 
-# Frontend development
-cd frontend && npm run dev
-
-# Backend development
-cd backend && uvicorn main:app --reload
-
-# Database operations
-docker-compose exec postgres psql -U stock_user -d stock_db
+# Recommended
+DEFAULT_MODEL=gpt-4o-mini       # Cost-effective model
+MODEL_TEMPERATURE=0.1           # Low for consistency
+MAX_TOKENS=800                  # Sufficient for analysis
+USE_CACHE=true                  # Avoid rate limits
+CACHE_DURATION_MINUTES=15       # Balance freshness/performance
+DEBUG_MODE=false                # Enable for troubleshooting
+LOG_LEVEL=INFO                  # DEBUG for detailed logs
 ```
 
-## Project Architecture
+## Testing Checklist
 
-### Current Module Structure
-```
-investment_advisor/
-├── agents/          # AI analysis agents (Company, Industry, Technical, etc.)
-├── analysis/        # Core analysis engines (technical, fundamental)
-├── data/           # Data fetchers (Yahoo Finance, Alpha Vantage)
-├── ui/             # Streamlit UI components and styling
-└── utils/          # Configuration, caching, utilities
-```
+Before deployment, verify:
 
-### Target Architecture (Clean Architecture)
-```
-backend/
-├── domain/         # Business logic and entities
-├── application/    # Use cases and services
-├── infrastructure/ # External services, databases
-└── api/           # FastAPI routes and dependencies
+1. **Data Accuracy**
+   - [ ] TSLA shows PER ~256 (not ~71)
+   - [ ] Samsung (005930) shows ~79,700 KRW
+   - [ ] Volume data displays correctly
+   
+2. **Agent Output**
+   - [ ] All 6 agents return complete analysis
+   - [ ] No placeholder text in UI
+   - [ ] Confidence levels display (높음/보통/낮음)
+   
+3. **Performance**
+   - [ ] Analysis completes in <45 seconds
+   - [ ] Cache hits for repeated queries
+   - [ ] No memory leaks after multiple runs
 
-frontend/
-├── src/
-│   ├── components/ # Reusable UI components
-│   ├── pages/     # Page components
-│   ├── hooks/     # Custom React hooks
-│   ├── services/  # API communication
-│   └── utils/     # Frontend utilities
-```
+## Key Files Reference
 
-## Key Development Guidelines
+| File | Purpose | Critical Functions |
+|------|---------|-------------------|
+| `main.py` | UI orchestration | `format_agent_result()`, `run_analysis()` |
+| `analysis/decision_system.py` | Agent coordination | `analyze()`, data fetching fallback |
+| `agents/company_analyst.py` | Financial analysis | Must receive `stock_data` parameter |
+| `data/yahoo_fetcher.py` | Primary data source | Real-time market data |
+| `utils/config.py` | Configuration | Model settings, API keys |
 
-### Code Quality
-- Follow Clean Code principles
-- Use dependency injection
-- Implement proper error handling
-- Add comprehensive logging
-- Write unit and integration tests
+## Performance Metrics
 
-### Performance
-- Use caching strategically (15min TTL for data)
-- Implement lazy loading for UI components
-- Use background jobs for heavy analysis
-- Optimize database queries
+- **Analysis Time**: 30-45 seconds (6 agents parallel)
+- **Cache Hit Rate**: >80% for repeated queries
+- **Memory Usage**: ~500MB typical, 1GB peak
+- **API Costs**: ~$0.02 per analysis (gpt-4o-mini)
 
-### Security
-- Never commit API keys or secrets
-- Use environment variables for configuration
-- Implement rate limiting
-- Validate all user inputs
-- Use HTTPS in production
+## Version History
 
-## Common Tasks
+- **v0.2 Beta (Current)**: Fixed agent output, accurate PER values
+- **v0.1**: Initial release with 6 agents
 
-### Adding New Analysis Agent
-1. Create new agent class in `investment_advisor/agents/`
-2. Inherit from `InvestmentAgent` base class
-3. Implement `_run()` method with analysis logic
-4. Add agent to decision system in `analysis/decision_system.py`
-5. Update UI to display agent results
+## Important Notes
 
-### Adding New Data Source
-1. Create fetcher class in `investment_advisor/data/`
-2. Inherit from `StockDataFetcher` base class
-3. Implement required methods (fetch_price_history, etc.)
-4. Add caching support
-5. Update configuration options
+1. **Always test with real stocks** (TSLA, AAPL, 005930) to verify data accuracy
+2. **Monitor API usage** to avoid unexpected costs
+3. **Clear cache** if data seems stale (>15 minutes old)
+4. **Use debug mode** for troubleshooting agent issues
+5. **Check terminal logs** - agents log completion even if UI doesn't show
 
-### UI/UX Improvements
-- Use professional color palette in `ui/styles.py`
-- Follow glassmorphism design principles
-- Implement responsive design
-- Add loading states and error handling
-- Use consistent typography and spacing
+## Maintenance Tasks
 
-## Debugging and Troubleshooting
+Weekly:
+- Clear old cache files
+- Review error logs
+- Update test data expectations
 
-### Common Issues
-1. **Yahoo Finance Rate Limiting**: Enable caching, add request delays
-2. **OpenAI API Errors**: Check API key validity and rate limits
-3. **Memory Issues**: Clear cache, optimize data structures
-4. **UI Performance**: Use progressive loading, lazy components
-
-### Logging
-- Use structured logging with appropriate levels
-- Filter duplicate messages (max 3 occurrences)
-- Suppress third-party library noise
-- Include request IDs for tracing
-
-## Migration Progress
-
-### Phase 1: Infrastructure (Current)
-- [x] Clean up legacy files
-- [x] Consolidate documentation
-- [ ] Set up Docker development environment
-- [ ] Initialize React + FastAPI projects
-- [ ] Database schema design
-
-### Phase 2: Backend Migration
-- [ ] Implement Clean Architecture
-- [ ] Migrate AI agents to FastAPI
-- [ ] Set up background job processing
-- [ ] Implement caching layer with Redis
-
-### Phase 3: Frontend Development
-- [ ] Create React component library
-- [ ] Implement Bloomberg Terminal-style UI
-- [ ] Add PWA capabilities
-- [ ] Real-time data streaming
-
-### Phase 4: Deployment & Optimization
-- [ ] Production Docker setup
-- [ ] CI/CD pipeline
-- [ ] Performance monitoring
-- [ ] Load testing and optimization
-
-## Testing Strategy
-
-### Current Testing
-```bash
-# Run all tests
-python -m pytest investment_advisor/tests/ -v
-
-# Test specific component
-python -m pytest investment_advisor/tests/test_agents.py
-
-# Test with coverage
-pytest --cov=investment_advisor
-```
-
-### Target Testing (React + FastAPI)
-```bash
-# Backend tests
-pytest backend/tests/
-
-# Frontend tests
-cd frontend && npm test
-
-# Integration tests
-docker-compose -f docker-compose.test.yml up
-```
-
-## Environment Variables
-
-### Required
-- `OPENAI_API_KEY`: OpenAI API key for AI agents
-- `DATABASE_URL`: PostgreSQL connection string (future)
-- `REDIS_URL`: Redis connection string (future)
-
-### Optional
-- `ALPHA_VANTAGE_API_KEY`: Backup data source
-- `DEBUG_MODE`: Enable debug logging
-- `USE_CACHE`: Enable/disable caching
-- `RATE_LIMIT_ENABLED`: Enable API rate limiting
-
-## Performance Targets
-
-### Current System
-- Page load: < 3s
-- Analysis time: < 30s
-- Cache hit ratio: > 80%
-
-### Target System
-- Initial load: < 1s
-- Subsequent pages: < 500ms
-- Real-time updates: < 100ms latency
-- API response: < 200ms average
-
-## Notes for Claude Code
-
-- Always run tests after making changes
-- Use the existing caching system to avoid API rate limits
-- Follow the established error handling patterns
-- Check TROUBLESHOOTING.md for common issues
-- The system is in active migration - respect both current and target architectures
-- Prioritize Clean Code principles and professional UI/UX standards
+Monthly:
+- Update model configurations if new versions available
+- Review API usage and costs
+- Update documentation with new issues/solutions

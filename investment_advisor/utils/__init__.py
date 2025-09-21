@@ -5,7 +5,7 @@ Contains utility functions and helper classes.
 """
 
 from .config import Config, get_config
-from .validators import InputValidator  
+from .validators import InputValidator
 from .logging import setup_logging
 
 __all__ = [

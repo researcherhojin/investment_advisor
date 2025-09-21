@@ -11,8 +11,6 @@ from .macroeconomist import MacroeconomistAgent
 from .technical_analyst import TechnicalAnalystAgent
 from .risk_manager import RiskManagerAgent
 from .mediator import MediatorAgent
-from .sentiment_analyst import MarketSentimentAgent
-from .news_analyst import NewsAnalysisAgent
 
 __all__ = [
     'InvestmentAgent',
@@ -22,6 +20,4 @@ __all__ = [
     'TechnicalAnalystAgent',
     'RiskManagerAgent',
     'MediatorAgent',
-    'MarketSentimentAgent',
-    'NewsAnalysisAgent',
 ]

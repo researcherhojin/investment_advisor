@@ -4,6 +4,7 @@ Industry Expert Agent
 Evaluates industry trends, technological developments, and regulatory environment.
 """
 
+import logging
 from typing import Dict, Any
 from pydantic import Field
 from langchain.prompts import PromptTemplate
@@ -11,21 +12,27 @@ from langchain.prompts import PromptTemplate
 from .base import InvestmentAgent
 from ..data.simple_fetcher import SimpleStockFetcher
 
+logger = logging.getLogger(__name__)
+
 
 class IndustryExpertAgent(InvestmentAgent):
     """Agent responsible for analyzing industry trends and environment."""
-    
+
     name: str = Field(default="산업전문가")
     description: str = "산업 트렌드, 기술 발전, 규제 환경을 평가합니다."
     simple_fetcher: SimpleStockFetcher = Field(default_factory=SimpleStockFetcher)
-    
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
     prompt: PromptTemplate = PromptTemplate(
         input_variables=["industry", "market"],
         template="""
-        당신은 15년 경력의 {industry} 산업 전문가입니다. {market} 시장의 {industry} 섹터에 대한 심층 분석을 제공해주세요:
+        당신은 15년 경력의 {industry} 산업 전문가입니다. 
         
+        중요: Tesla(TSLA)를 분석하는 경우, 전기차(EV) 산업에 집중하세요. 일반적인 기술/소프트웨어가 아닌 전기차, 배터리, 자율주행, 에너지 저장 시스템 관련 분석을 제공하세요.
+        
+        {market} 시장의 {industry} 섹터에 대한 심층 분석을 제공해주세요:
+
         **1. 산업 사이클 및 현재 위치**
            - 현재 산업 사이클 단계: 성장기/성숙기/쇠퇴기/회복기 중 판단
            - **산업 성장률: 연평균 X% (최근 3년 vs 향후 3년 전망)**
@@ -77,38 +84,38 @@ class IndustryExpertAgent(InvestmentAgent):
         ⚠️ 모든 전망은 구체적 수치와 시기를 제시하고, 근거를 명확히 해주세요.
         """
     )
-    
+
     def _run(self, industry: str, market: str) -> str:
         """Execute industry analysis."""
         try:
             analysis = self.llm.invoke(
                 self.prompt.format(industry=industry, market=market)
             ).content
-            
+
             # Industry analysis typically has high confidence
             confidence = "높음"
-            
+
             # Validate industry analysis completeness
             if not self.validate_analysis_completeness(analysis):
                 logger.warning(f"Industry analysis for {industry} may be incomplete")
                 confidence = "보통"
-            
+
             return self.format_response(analysis, confidence)
-            
+
         except Exception as e:
             logger.error(f"Error in industry analysis for {industry}: {str(e)}")
             return self.format_response(
-                f"산업 분석 중 오류가 발생했습니다: {str(e)}", 
+                f"산업 분석 중 오류가 발생했습니다: {str(e)}",
                 "낮음"
             )
-    
+
     def get_industry_data(self, industry: str) -> Dict[str, Any]:
         """
         Get industry-specific data (placeholder for future implementation).
-        
+
         Args:
             industry: Industry name
-            
+
         Returns:
             Dictionary with industry data
         """

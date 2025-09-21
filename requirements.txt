@@ -18,7 +18,7 @@ DateTime==5.5
 Deprecated==1.2.14
 distro==1.9.0
 duckduckgo_search==6.2.13
-finance-datareader==0.9.94
+finance-datareader>=0.9.50
 fonttools==4.53.1
 frozendict==2.4.4
 frozenlist==1.4.1

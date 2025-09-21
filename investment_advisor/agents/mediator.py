@@ -15,11 +15,11 @@ from ..data.simple_fetcher import SimpleStockFetcher
 
 class MediatorAgent(InvestmentAgent):
     """Agent responsible for synthesizing all analyses and making final recommendations."""
-    
+
     name: str = Field(default="중재자")
     description: str = "다른 Agent들의 의견을 종합하여 최종 투자 결정을 내립니다."
     simple_fetcher: SimpleStockFetcher = Field(default_factory=SimpleStockFetcher)
-    
+
     def __init__(self, **data):
         super().__init__(**data)
         if "llm" not in data:
@@ -45,7 +45,7 @@ class MediatorAgent(InvestmentAgent):
         거시경제전문가: {macro_analysis}
         기술분석가: {technical_analysis}
         리스크관리자: {risk_analysis}
-        
+
         **🎯 STEP 1: 전문가 의견 충돌 분석**
         - 매수/매도 의견이 엇갈리는 부분 식별
         - 가격 목표의 차이와 그 원인 분석
@@ -58,7 +58,7 @@ class MediatorAgent(InvestmentAgent):
         - 산업전문가 의견 가중치: 20% (섹터 트렌드)
         - 리스크관리자 의견 가중치: 15% (안전성)
         - 거시경제전문가 의견 가중치: 10% (환경)
-        
+
         **🎲 STEP 3: 최종 투자 결정 (필수)**
         - **투자등급: 강력매수/매수/중립/매도/강력매도**
         - **신뢰도 점수: X/10점 (의견 일치도 기준)**
@@ -73,7 +73,7 @@ class MediatorAgent(InvestmentAgent):
 
         **⏰ STEP 5: 시나리오 분석 (확률 기반)**
         - **Bull Case (30% 확률): 목표가 $XXX, 상승요인 3가지**
-        - **Base Case (50% 확률): 목표가 $XXX, 중립요인 3가지**  
+        - **Base Case (50% 확률): 목표가 $XXX, 중립요인 3가지**
         - **Bear Case (20% 확률): 목표가 $XXX, 하락요인 3가지**
 
         **🚨 STEP 6: 리스크 관리 체크리스트**
@@ -84,7 +84,7 @@ class MediatorAgent(InvestmentAgent):
 
         **📊 STEP 7: 모니터링 체크포인트**
         - **Daily**: 기술적 지지/저항선 모니터링
-        - **Weekly**: 거래량 패턴과 모멘텀 변화 추적  
+        - **Weekly**: 거래량 패턴과 모멘텀 변화 추적
         - **Monthly**: 펀더멘털 변화와 컨센서스 추이
         - **Quarterly**: 실적 발표와 가이던스 업데이트
 
@@ -97,19 +97,19 @@ class MediatorAgent(InvestmentAgent):
         ⚠️ **면책조항**: 본 분석은 참고자료이며, 투자 손실에 대한 책임을 지지 않습니다. 개인의 위험성향과 재무상황을 고려하여 신중한 투자 결정을 하시기 바랍니다.
         """
     )
-    
+
     def _run(self, inputs: Dict[str, str]) -> str:
         """
         Execute mediator analysis.
-        
+
         Args:
             inputs: Dictionary containing all agent analyses
-            
+
         Returns:
             Final synthesized investment recommendation
         """
         return self.llm.invoke(self.prompt.format(**inputs)).content
-    
+
     def synthesize_recommendations(
         self,
         analyses: Dict[str, str],
@@ -117,11 +117,11 @@ class MediatorAgent(InvestmentAgent):
     ) -> str:
         """
         Synthesize recommendations from all agents.
-        
+
         Args:
             analyses: Dictionary of agent analyses
             market: Market identifier
-            
+
         Returns:
             Final investment recommendation
         """
@@ -133,5 +133,5 @@ class MediatorAgent(InvestmentAgent):
             "risk_analysis": analyses.get("리스크관리자", "분석 데이터 없음"),
             "market": market
         }
-        
+
         return self._run(mediator_inputs)

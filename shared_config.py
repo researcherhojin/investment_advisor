@@ -38,16 +38,16 @@ class AgentConfig:
 @dataclass
 class SharedConfig:
     """Shared configuration between Streamlit and FastAPI."""
-    
+
     # Application
     app_name: str = "AI Investment Advisory System"
     version: str = "1.0.0"
-    
+
     # AI Configuration
     openai_api_key: str = field(default_factory=lambda: os.getenv("OPENAI_API_KEY", ""))
     openai_model: str = "gpt-4o-mini-2024-07-18"
     openai_temperature: float = 0.1
-    
+
     # Market Configuration
     markets: Dict[str, MarketConfig] = field(default_factory=lambda: {
         "US": MarketConfig(
@@ -65,7 +65,7 @@ class SharedConfig:
             timezone="Asia/Seoul"
         )
     })
-    
+
     # Agent Configuration
     agents: Dict[str, AgentConfig] = field(default_factory=lambda: {
         "company_analyst": AgentConfig(
@@ -111,16 +111,16 @@ class SharedConfig:
             weight=1.5
         )
     })
-    
+
     # Cache Configuration
     cache_enabled: bool = True
     cache_ttl: int = 900  # 15 minutes
-    
+
     # Analysis Configuration
     default_analysis_period: int = 12  # months
     max_analysis_period: int = 36
     min_confidence_threshold: float = 0.6
-    
+
     # UI Configuration
     theme_colors: Dict[str, str] = field(default_factory=lambda: {
         "primary": "#1E88E5",
@@ -131,7 +131,7 @@ class SharedConfig:
         "dark": "#1E1E1E",
         "light": "#F5F5F5"
     })
-    
+
     # Feature Flags
     use_streamlit_agents: bool = field(
         default_factory=lambda: os.getenv("USE_STREAMLIT_AGENTS", "true").lower() == "true"
@@ -142,23 +142,23 @@ class SharedConfig:
     enable_debug_mode: bool = field(
         default_factory=lambda: os.getenv("DEBUG_MODE", "false").lower() == "true"
     )
-    
+
     # Data Sources
     primary_data_source: str = "stable_fetcher"  # "yahoo_finance" or "stable_fetcher"
     fallback_data_sources: list = field(default_factory=lambda: ["alpha_vantage", "finnhub"])
-    
+
     # Stock Data
     popular_stocks: Dict[str, list] = field(default_factory=lambda: {
         "US": ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "TSLA", "META", "BRK.B"],
         "KR": ["005930", "000660", "035420", "005380", "051910", "006400", "035720", "003550"]
     })
-    
+
     def get_market_name(self, market: str, language: str = "ko") -> str:
         """Get market name in specified language."""
         if market in self.markets:
             return self.markets[market].name_ko if language == "ko" else self.markets[market].name_en
         return market
-    
+
     def get_agent_info(self, agent_type: str, language: str = "ko") -> Dict[str, Any]:
         """Get agent information in specified language."""
         if agent_type in self.agents:
@@ -170,7 +170,7 @@ class SharedConfig:
                 "weight": agent.weight
             }
         return {"name": agent_type, "color": "#666666", "icon": "🤖", "weight": 1.0}
-    
+
     def get_investment_decision_style(self, decision: str) -> Dict[str, str]:
         """Get styling for investment decision."""
         styles = {
@@ -197,12 +197,12 @@ class SharedConfig:
             }
         }
         return styles.get(decision.upper(), styles["HOLD"])
-    
+
     @classmethod
     def load_from_env(cls) -> "SharedConfig":
         """Load configuration from environment variables."""
         return cls()
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert configuration to dictionary."""
         return {

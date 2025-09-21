@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 class SimpleStockFetcher:
     """Simple fetcher that prioritizes mock data to avoid API limits."""
-    
+
     def __init__(self):
         # Known stock data for better realism
         self.known_stocks = {
@@ -44,10 +44,10 @@ class SimpleStockFetcher:
             },
             'TSLA': {
                 'name': 'Tesla, Inc.',
-                'price': 800.0,
-                'pe': 45.6,
-                'pb': 8.1,
-                'market_cap': 800_000_000_000
+                'price': 426.07,  # Real Tesla price
+                'pe': 256.67,  # Actual P/E ratio from Yahoo Finance
+                'pb': 17.77,  # Actual P/B ratio from Yahoo Finance
+                'market_cap': 1_416_700_000_000  # ~1.42T market cap
             },
             'AMZN': {
                 'name': 'Amazon.com, Inc.',
@@ -64,19 +64,19 @@ class SimpleStockFetcher:
                 'market_cap': 2_200_000_000_000
             }
         }
-    
+
     def fetch_stock_data(self, ticker: str, market: str = "미국장") -> Dict[str, Any]:
         """Fetch stock data with intelligent mock generation."""
         logger.info(f"Generating data for {ticker}")
-        
+
         # Use known data if available
         if ticker in self.known_stocks:
             base_data = self.known_stocks[ticker]
-            
+
             # Add some realistic variation
             price_variation = random.uniform(0.95, 1.05)
             current_price = base_data['price'] * price_variation
-            
+
             return {
                 'ticker': ticker,
                 'currentPrice': round(current_price, 2),
@@ -102,13 +102,13 @@ class SimpleStockFetcher:
                 'source': 'enhanced_mock',
                 'data_quality': 'high_quality_simulation'
             }
-        
+
         # Generate data based on ticker pattern
         return self._generate_realistic_data(ticker, market)
-    
+
     def _generate_realistic_data(self, ticker: str, market: str) -> Dict[str, Any]:
         """Generate realistic data based on patterns."""
-        
+
         # Determine price range based on ticker characteristics
         if len(ticker) <= 4 and ticker.isalpha():
             # US stock
@@ -121,11 +121,11 @@ class SimpleStockFetcher:
         else:
             # Assume Korean stock (6 digits)
             base_price = random.uniform(10000, 100000)
-        
+
         # Generate company name
         company_suffixes = ['Inc.', 'Corporation', 'Company', 'Ltd.', 'Group']
         company_name = f"{ticker} {random.choice(company_suffixes)}"
-        
+
         # Market cap based on price
         if base_price > 500:
             market_cap = random.randint(100, 2000) * 1_000_000_000
@@ -133,7 +133,7 @@ class SimpleStockFetcher:
             market_cap = random.randint(10, 500) * 1_000_000_000
         else:
             market_cap = random.randint(1, 50) * 1_000_000_000
-        
+
         stock_data = {
             'ticker': ticker,
             'currentPrice': round(base_price, 2),
@@ -175,71 +175,71 @@ class SimpleStockFetcher:
                 }
             }
         }
-        
+
         return stock_data
-    
+
     def fetch_price_history(self, ticker: str, start_date: datetime, end_date: datetime) -> pd.DataFrame:
         """Fetch price history for given date range."""
         days = (end_date - start_date).days
         return self.create_price_history(ticker, days)
-    
+
     def create_price_history(self, ticker: str, days: int = 365) -> pd.DataFrame:
         """Create realistic price history."""
         try:
             # Get current price
             stock_data = self.fetch_stock_data(ticker)
             current_price = stock_data.get('currentPrice', 100.0)
-            
+
             # Generate dates
             end_date = datetime.now()
             dates = pd.date_range(end=end_date, periods=days, freq='D')
-            
+
             # Generate realistic price movements using geometric Brownian motion
             np.random.seed(hash(ticker) % 1000)  # Consistent but different for each ticker
-            
+
             # Parameters
             daily_return_mean = 0.0008  # Small positive drift
             daily_volatility = 0.018    # 1.8% daily volatility
-            
+
             # Generate returns
             returns = np.random.normal(daily_return_mean, daily_volatility, days)
-            
+
             # Add some trending behavior
             trend = np.linspace(-0.001, 0.001, days)  # Slight upward trend
             returns += trend
-            
+
             # Calculate cumulative prices
             price_ratios = np.exp(np.cumsum(returns))
-            
+
             # Scale to end at current price
             prices = current_price * price_ratios / price_ratios[-1]
-            
+
             # Create OHLCV data
             df = pd.DataFrame(index=dates)
             df['Close'] = prices
             df['Open'] = df['Close'].shift(1).fillna(df['Close'].iloc[0])
-            
+
             # Generate realistic high/low
             daily_ranges = np.random.uniform(0.005, 0.03, days)  # 0.5% to 3% daily range
             df['High'] = df[['Open', 'Close']].max(axis=1) * (1 + daily_ranges * 0.7)
             df['Low'] = df[['Open', 'Close']].min(axis=1) * (1 - daily_ranges * 0.7)
-            
+
             # Volume with some correlation to price movement
             price_changes = np.abs(df['Close'].pct_change().fillna(0))
             base_volume = 10_000_000
             volume_multiplier = 1 + price_changes * 5  # Higher volume on big moves
             df['Volume'] = (base_volume * volume_multiplier * np.random.uniform(0.5, 2.0, days)).astype(int)
-            
+
             # Round prices
             for col in ['Open', 'High', 'Low', 'Close']:
                 df[col] = df[col].round(2)
-            
+
             logger.info(f"Generated {days} days of realistic price history for {ticker}")
             return df
-            
+
         except Exception as e:
             logger.error(f"Error creating price history for {ticker}: {e}")
-            
+
             # Return basic fallback data
             dates = pd.date_range(end=datetime.now(), periods=30, freq='D')
             df = pd.DataFrame(index=dates)
@@ -248,5 +248,5 @@ class SimpleStockFetcher:
             df['High'] = 102.0
             df['Low'] = 98.0
             df['Volume'] = 10_000_000
-            
+
             return df
