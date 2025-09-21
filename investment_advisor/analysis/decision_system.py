@@ -35,13 +35,21 @@ class InvestmentDecisionSystem:
     def __init__(self):
         self.config = get_config()
 
+        # Check if Yahoo Finance should be used
+        import os
+        use_yahoo = os.getenv('USE_YAHOO_FINANCE', 'false').lower() == 'true'
+
         # Initialize data fetchers - Yahoo as primary, Stable as fallback
-        try:
-            self.yahoo_fetcher = YahooFetcher(cache_ttl=60)
-            logger.info("Using Yahoo Finance as primary data source")
-        except Exception as e:
+        if use_yahoo:
+            try:
+                self.yahoo_fetcher = YahooFetcher(cache_ttl=60)
+                logger.info("Using Yahoo Finance as primary data source")
+            except Exception as e:
+                self.yahoo_fetcher = None
+                logger.warning(f"Yahoo Finance unavailable: {e}")
+        else:
             self.yahoo_fetcher = None
-            logger.warning(f"Yahoo Finance unavailable: {e}")
+            logger.info("Yahoo Finance disabled by configuration")
 
         self.stable_fetcher = StableFetcher(use_cache=self.config.use_cache)
         self.simple_fetcher = SimpleStockFetcher()
@@ -156,7 +164,7 @@ class InvestmentDecisionSystem:
     ) -> Tuple[Dict[str, Any], pd.DataFrame]:
         """Public method to fetch stock data."""
         return self._fetch_stock_data_internal(ticker, start_date, end_date)
-    
+
     def _fetch_stock_data_internal(
         self,
         ticker: str,
@@ -169,53 +177,53 @@ class InvestmentDecisionSystem:
             if self.yahoo_fetcher:
                 try:
                     logger.info(f"Fetching real data for {ticker} using Yahoo Finance")
-                    
+
                     # Get quote data
                     quote_data = self.yahoo_fetcher.fetch_quote(ticker)
-                    
+
                     # Get price history
                     price_history = self.yahoo_fetcher.fetch_price_history(ticker, start_date, end_date)
-                    
+
                     # Get financial data
                     financial_data = self.yahoo_fetcher.fetch_financial_data(ticker)
-                    
+
                     if quote_data and not price_history.empty:
                         company_info = self.yahoo_fetcher.fetch_company_info(ticker)
-                        
+
                         stock_data = {
                             **quote_data,
                             **company_info,
                             **financial_data,
                             'fetcher': 'yahoo'
                         }
-                        
+
                         logger.info(f"Successfully fetched real data for {ticker} from Yahoo Finance")
                         return stock_data, price_history
-                        
+
                 except Exception as e:
                     logger.debug(f"Yahoo Finance failed for {ticker}: {e}")
-            
+
             # Fallback to StableFetcher
             logger.info(f"Using StableFetcher as fallback for {ticker}")
-            
+
             quote_data = self.stable_fetcher.fetch_quote(ticker)
             price_history = self.stable_fetcher.fetch_price_history(ticker, start_date, end_date)
             financial_data = self.stable_fetcher.fetch_financial_data(ticker)
             company_info = self.stable_fetcher.fetch_company_info(ticker)
-            
+
             stock_data = {
                 **quote_data,
                 **financial_data,
                 **company_info,
                 'fetcher': 'stable'
             }
-            
+
             return stock_data, price_history
-            
+
         except Exception as e:
             logger.error(f"Failed to fetch stock data for {ticker}: {e}")
             raise Exception(f"데이터 수집 실패: {str(e)}")
-    
+
     def _fetch_stock_data(
         self,
         ticker: str,
