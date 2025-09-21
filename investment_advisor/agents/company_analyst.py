@@ -223,7 +223,8 @@ class CompanyAnalystAgent(InvestmentAgent):
 
         try:
             financials = stock.get_market_fundamental_by_ticker(today)
-            logger.info(f"Fetched financial data: {financials}")
+            # Don't log the entire DataFrame to avoid formatting issues
+            logger.info(f"Fetched financial data for {len(financials) if hasattr(financials, '__len__') else 'unknown'} companies")
 
             if company in financials.index:
                 company_financials = financials.loc[company].to_dict()

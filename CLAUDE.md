@@ -50,8 +50,10 @@ ai-investment-advisor/
 ## Critical Debugging Lessons
 
 ### 1. Agent Output Display Fix
-**Problem**: AI agents returning content but UI showing placeholders  
+
+**Problem**: AI agents returning content but UI showing placeholders
 **Solution**: In `main.py`, properly extract agent content:
+
 ```python
 def format_agent_result(agent_text):
     # Remove header (## 에이전트명의 분석...)
@@ -60,24 +62,30 @@ def format_agent_result(agent_text):
 ```
 
 ### 2. Import Path Consistency
-**Problem**: ModuleNotFoundError after file reorganization  
+
+**Problem**: ModuleNotFoundError after file reorganization
 **Solution**: Always use relative imports from `utils`, not `core`:
+
 ```python
 from ..utils import get_config  # Correct
 # from ..core import get_config  # Wrong (core was removed)
 ```
 
 ### 3. Model Configuration
-**Problem**: Invalid model names causing API errors  
+
+**Problem**: Invalid model names causing API errors
 **Solution**: Use valid OpenAI models:
+
 ```python
 DEFAULT_MODEL=gpt-4o-mini  # Valid, cost-effective
 # DEFAULT_MODEL=gpt-5-nano  # Invalid, doesn't exist
 ```
 
 ### 4. Financial Data Accuracy
-**Problem**: Incorrect PER values (showing 39.4 instead of 256.67 for TSLA)  
+
+**Problem**: Incorrect PER values (showing 39.4 instead of 256.67 for TSLA)
 **Solution**: Pass actual stock_data to CompanyAnalystAgent:
+
 ```python
 # In decision_system.py
 agent_results["기업분석가"] = company_agent._run(
@@ -107,11 +115,13 @@ find .cache -mtime +1 -delete   # Clear old cache
 ## Data Flow Architecture
 
 ### Three-Tier Data Fetching System
+
 1. **Primary**: `YahooFetcher` → Real-time market data
 2. **Fallback**: `StableFetcher` → Backup data source
 3. **Emergency**: `SimpleFetcher` → Hardcoded values
 
 ### Parallel Agent Execution
+
 ```python
 # Agents run concurrently via ThreadPoolExecutor
 with ThreadPoolExecutor(max_workers=4) as executor:
@@ -124,6 +134,7 @@ with ThreadPoolExecutor(max_workers=4) as executor:
 ## Common Issues & Solutions
 
 ### Yahoo Finance Rate Limiting
+
 ```bash
 # Enable caching
 USE_CACHE=true
@@ -134,11 +145,13 @@ time.sleep(1)  # Between API calls
 ```
 
 ### Agent Output Truncation
+
 - Check `format_agent_result()` in main.py
 - Verify agent returns complete text
 - Remove placeholder text patterns
 
 ### Memory/Performance Issues
+
 ```bash
 # Clear cache
 rm -rf .cache/
@@ -171,15 +184,17 @@ LOG_LEVEL=INFO                  # DEBUG for detailed logs
 Before deployment, verify:
 
 1. **Data Accuracy**
+
    - [ ] TSLA shows PER ~256 (not ~71)
    - [ ] Samsung (005930) shows ~79,700 KRW
    - [ ] Volume data displays correctly
-   
+
 2. **Agent Output**
+
    - [ ] All 6 agents return complete analysis
    - [ ] No placeholder text in UI
    - [ ] Confidence levels display (높음/보통/낮음)
-   
+
 3. **Performance**
    - [ ] Analysis completes in <45 seconds
    - [ ] Cache hits for repeated queries
@@ -187,13 +202,13 @@ Before deployment, verify:
 
 ## Key Files Reference
 
-| File | Purpose | Critical Functions |
-|------|---------|-------------------|
-| `main.py` | UI orchestration | `format_agent_result()`, `run_analysis()` |
-| `analysis/decision_system.py` | Agent coordination | `analyze()`, data fetching fallback |
-| `agents/company_analyst.py` | Financial analysis | Must receive `stock_data` parameter |
-| `data/yahoo_fetcher.py` | Primary data source | Real-time market data |
-| `utils/config.py` | Configuration | Model settings, API keys |
+| File                          | Purpose             | Critical Functions                        |
+| ----------------------------- | ------------------- | ----------------------------------------- |
+| `main.py`                     | UI orchestration    | `format_agent_result()`, `run_analysis()` |
+| `analysis/decision_system.py` | Agent coordination  | `analyze()`, data fetching fallback       |
+| `agents/company_analyst.py`   | Financial analysis  | Must receive `stock_data` parameter       |
+| `data/yahoo_fetcher.py`       | Primary data source | Real-time market data                     |
+| `utils/config.py`             | Configuration       | Model settings, API keys                  |
 
 ## Performance Metrics
 
@@ -218,11 +233,13 @@ Before deployment, verify:
 ## Maintenance Tasks
 
 Weekly:
+
 - Clear old cache files
 - Review error logs
 - Update test data expectations
 
 Monthly:
+
 - Update model configurations if new versions available
 - Review API usage and costs
 - Update documentation with new issues/solutions
